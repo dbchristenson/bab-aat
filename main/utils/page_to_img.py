@@ -48,4 +48,6 @@ def create_img_and_pad_divisible_by_32(
         img, border=(0, 0, w_to_pad, h_to_pad), fill="black"
     )
 
+    page.close()
+
     return padded_img
