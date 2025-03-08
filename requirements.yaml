@@ -1,0 +1,6 @@
+ipykernel==6.29.5
+numpy==2.2.2
+pandas==2.2.3
+Pillow==11.1.0
+pydfium==6996
+seaborn==0.13.2
