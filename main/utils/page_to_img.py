@@ -7,8 +7,10 @@ def rotate_landscape(page: pdfium.PdfPage) -> pdfium.PdfPage:
     """
     This function rotates the page into landscape orientation.
     """
-    if page.height > page.width:
-        return page.rotate(270)
+    p_w, p_h = page.get_size()
+
+    if p_h > p_w:
+        page.set_rotation(270)
 
     return page
 
@@ -21,7 +23,6 @@ def create_img_and_pad_divisible_by_32(
     improve resolution. It then pads the image to make its width and height
     divisible by 32.
     """
-
     # Rotate the page into landscape orientation if needed
     page = rotate_landscape(page)
 

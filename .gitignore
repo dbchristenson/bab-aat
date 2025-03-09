@@ -171,7 +171,13 @@ cython_debug/
 .pypirc
 
 # Data
-data/
+data/*
 
 # Networks
-nn/
+nn/*
+
+# Outputs
+*_output/
+
+# Compressed files
+*.zip

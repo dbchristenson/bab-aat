@@ -1,4 +1,5 @@
 import argparse
+import glob
 import os
 
 import pypdfium2 as pdfium
@@ -9,7 +10,15 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 
 
-def get_pdf_paths(dir: str, absolute_path: bool = False) -> list[str]:
+def check_already_converted(file_path: str, output_dir: str) -> bool:
+    pattern = os.path.join(output_dir, f"{file_path[:-2]}*.png")
+
+    return glob.glob(pattern)
+
+
+def get_pdf_paths(
+    dir: str, output_dir: str, absolute_path: bool = False
+) -> list[str]:
     """
     Get the paths of all PDF files in the specified directory. When working
     locally on my mac, I already defined a base and data directory. When
@@ -28,6 +37,14 @@ def get_pdf_paths(dir: str, absolute_path: bool = False) -> list[str]:
     full_pdf_paths = []
 
     for path in pdf_paths:
+        # Check if the PDF defined by the path already has been converted
+        file_name = path.split("/")[-1]
+        converted = check_already_converted(file_name, output_dir)
+
+        if converted:
+            print(f"{file_name} already converted, skipping...")
+            continue
+
         # Join the directory and the path to get the absolute path
         new_path = os.path.join(pdf_data_dir, path)
 
@@ -45,16 +62,22 @@ def convert_pdfs(pdf_paths: list, output_dir: str, scale: int = 4):
 
     for path in pdf_paths:
         file_name = path.split("/")[-1]
+        base_name = file_name.split(".")[0]
         pdf = pdfium.PdfDocument(path)
 
+        """
         print(f"Converting {file_name} to image...")
+        print(path)
+        print(type(pdf))
+        print([p for p in pdf][0].render(scale=scale))
+        """
 
         for i, page in enumerate(pdf):
             # Convert the page to an image
             img = create_img_and_pad_divisible_by_32(page, scale=scale)
 
             # Save the image
-            new_name = f"{file_name}_{i}.png"
+            new_name = f"{base_name}_{i}.png"
             new_path = os.path.join(output_dir, new_name)
             img.save(new_path)
 
@@ -67,7 +90,7 @@ def main_pipeline(
     pdf_dir: str, output_dir: str, scale: int = 4, absolute_path: bool = False
 ):
     os.makedirs(output_dir, exist_ok=True)
-    pdf_paths = get_pdf_paths(pdf_dir, absolute_path=absolute_path)
+    pdf_paths = get_pdf_paths(pdf_dir, output_dir, absolute_path=absolute_path)
     convert_pdfs(pdf_paths, output_dir, scale=scale)
 
     print("Done converting PDFs to images.")
