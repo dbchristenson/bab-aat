@@ -4,11 +4,11 @@ import os
 
 import pypdfium2 as pdfium
 from utils.page_to_img import create_img_and_pad_divisible_by_32
+from utils.configs import with_config
 
 BASE_DIR = "/Users/dbchristenson/Desktop/python/bab-aat/bab-aat"
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
-
 
 def check_already_converted(file_path: str, output_dir: str) -> bool:
     pattern = os.path.join(output_dir, f"{file_path[:-2]}*.png")
@@ -85,10 +85,13 @@ def convert_pdfs(pdf_paths: list, output_dir: str, scale: int = 4):
 
     return
 
+@with_config
+def main_pipeline(config=None):
+    pdf_dir = config.get("pdf_dir")
+    output_dir = config.get("output_dir")
+    scale = config.get("scale")
+    absolute_path = config.get("absolute_path")
 
-def main_pipeline(
-    pdf_dir: str, output_dir: str, scale: int = 4, absolute_path: bool = False
-):
     os.makedirs(output_dir, exist_ok=True)
     pdf_paths = get_pdf_paths(pdf_dir, output_dir, absolute_path=absolute_path)
     convert_pdfs(pdf_paths, output_dir, scale=scale)
@@ -102,28 +105,11 @@ def main_pipeline(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process PDFs to images.")
     parser.add_argument(
-        "--pdf_dir",
+        "--config",
         type=str,
-        required=True,
-        help="Dir with PDFs (relative to DATA_DIR unless --absolute is set).",
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        required=True,
-        help="Directory to save output images.",
-    )
-    parser.add_argument(
-        "--scale",
-        type=int,
-        default=4,
-        help="Scale factor for rendering PDF pages (default: 4).",
-    )
-    parser.add_argument(
-        "--absolute",
-        action="store_true",
-        help="Flag to indicate that pdf_dir is an absolute path.",
+        help="Path to the configuration file.",
+        default=os.path.join(BASE_DIR, "config.json"),
     )
     args = parser.parse_args()
 
-    main_pipeline(args.pdf_dir, args.output_dir, args.scale, args.absolute)
+    main_pipeline(config=args.config)
