@@ -181,3 +181,6 @@ nn/*
 
 # Compressed files
 *.zip
+
+# SQLite DB
+main.db
