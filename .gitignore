@@ -184,3 +184,4 @@ nn/*
 
 # SQLite DB
 main.db
+*.db
