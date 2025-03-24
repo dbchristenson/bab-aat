@@ -27,6 +27,9 @@ class Document(BaseModel):
     file_path = CharField()
     created_at = DateTimeField(default=dt.datetime.now)
 
+    class Meta:
+        database = db
+
 
 class Page(BaseModel):
     """
@@ -37,6 +40,9 @@ class Page(BaseModel):
     page_number = IntegerField()  # 0-indexed
     img_path = CharField()
     created_at = DateTimeField(default=dt.datetime.now)
+
+    class Meta:
+        database = db
 
 
 class Detection(BaseModel):
@@ -53,6 +59,9 @@ class Detection(BaseModel):
     confidence = FloatField(null=True)
     cropped_img_path = CharField(null=True)
     created_at = DateTimeField(default=dt.datetime.now)
+
+    class Meta:
+        database = db
 
 
 db.connect()
