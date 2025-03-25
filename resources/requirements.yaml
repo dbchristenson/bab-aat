@@ -1,4 +1,4 @@
-opencv-python==4.10.0.82
+opencv-python==4.11.0.86
 ipykernel==6.29.5
 numpy==2.2.2
 pandas==2.2.3
