@@ -90,19 +90,25 @@ def save_document(file_name: str, file_path: str) -> None:
 
 
 def get_pdf_paths(
-    dir: str, output_dir: str, absolute_path: bool = False
+    dir: str,
+    absolute_path: bool = False,
+    max_depth: int = 10,
+    min_file_size: int = 1,
+    max_file_size: int = float("inf"),
 ) -> list[str]:
     """
-    Finds all PDFs in a directory, saves to DB, returns full paths.
+    Recursively finds all PDFs in a directory, saves to DB, returns full paths.
 
     Scans directory for PDFs, verifies each file, stores in database.
     Returns list of full paths to found PDF files.
 
     Args:
         dir: Directory to search (relative or absolute path).
-        output_dir: Directory for processed files/output.
         absolute_path: If True, treats 'dir' as absolute path. If False,
             resolves relative to current working directory.
+        max_depth: Maximum depth to search for PDFs (default: 10).
+        min_file_size: Minimum file size in bytes to consider (default: 1).
+        max_file_size: Maximum file size in bytes to consider (default: inf).
 
     Returns:
         List of full paths to found PDF files.
@@ -115,27 +121,42 @@ def get_pdf_paths(
         - Logs warnings for non-file entries (e.g., directories)
         - Auto-saves documents via save_document()
     """
-    # Setup and verify the PDF data directory
     pdf_data_dir = resolve_dir_path(dir, absolute_path)
-
-    pdf_paths = [f for f in os.listdir(pdf_data_dir) if f.endswith(".pdf")]
-    assert len(pdf_paths) > 0, f"No PDF files found in {pdf_data_dir}"
-
-    # Collect the full paths of the PDF files
     full_pdf_paths = []
 
-    for path in pdf_paths:
-        new_path = os.path.join(pdf_data_dir, path)
+    for dirpath, _, filenames in os.walk(pdf_data_dir):
+        base_path_length = len(pdf_data_dir)
+        current_depth = dirpath[base_path_length:].count(os.sep)
 
-        # Check if the path is a file
-        if os.path.isfile(new_path):
-            full_pdf_paths.append(new_path)
-        else:
-            logging.warning(f"{new_path} is not a file")
+        # Skip if beyond max depth
+        if max_depth is not None and current_depth > max_depth:
             continue
 
-        # Add the document to the database, path acts as the file's name
-        save_document(path, new_path)
+        for filename in filenames:
+            if filename.lower().endswith(".pdf"):
+                full_path = os.path.join(dirpath, filename)
+
+                # Skip if not a file
+                if not os.path.isfile(full_path):
+                    logging.warning(f"Skipping non-file: {full_path}")
+                    continue
+
+                # Check file size
+                file_size = os.path.getsize(full_path)
+                if not (min_file_size <= file_size <= max_file_size):
+                    logging.info(
+                        f"Skipping {filename} - size {file_size} bytes "
+                        f"(outside range {min_file_size}-{max_file_size})"
+                    )
+                    continue
+
+                full_pdf_paths.append(full_path)
+                save_document(filename, full_path)
+
+    assert full_pdf_paths, (
+        f"No PDF files found in {pdf_data_dir} matching criteria "
+        f"(depth<={max_depth}, size {min_file_size}-{max_file_size} bytes)"
+    )
 
     return full_pdf_paths
 
@@ -171,9 +192,17 @@ def check_already_converted(pdf_path: str) -> bool:
         return False
 
 
-def save_img(parent_doc: Document, page_num: int, img_path: str):
+def save_img_to_db(parent_doc: Document, page_num: int, img_path: str):
     """
     Save the image to the output directory and add the page to the database.
+
+    Args:
+        parent_doc: Document object for the parent PDF
+        page_num: Page number of the image
+        img_path: Path to the image file
+
+    Raises:
+        IntegrityError: If database constraints are violated during
     """
     try:
         Page.create(
@@ -184,6 +213,41 @@ def save_img(parent_doc: Document, page_num: int, img_path: str):
         logging.error(f"Error with page {page_num} of {parent_doc.name}: {e}")
 
 
+def convert_pdf(
+    path: str,
+    parent_doc: Document,
+    base_name: str,
+    file_name: str,
+    output_dir: str,
+    scale: int = 4,
+):
+    """
+    Convert a single PDF to images while tracking state in database.
+
+    Args:
+        pdf: Pdfium PDF object to convert
+        parent_doc: Document object for the parent PDF
+        base_name: Base name of the PDF file
+        file_name: Full name of the PDF file with the extension
+        output_dir: Directory to save converted images
+        scale: Scaling factor for image conversion (default: 4)
+    """
+    pdf = pdfium.PdfDocument(path)
+
+    for i in range(len(pdf)):
+        page = pdf[i]
+        img = create_img_and_pad_divisible_by_32(page, scale=scale)
+        new_name = f"{base_name}_{i}.png"
+        new_path = os.path.join(output_dir, new_name)
+
+        # Save img to output and data to db
+        img.save(new_path)
+        logging.info(f"Page {i} of {file_name} saved as image.")
+        save_img_to_db(parent_doc, i, new_path)
+
+    pdf.close()
+
+
 def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
     """
     Convert PDFs to images while tracking state in database.
@@ -192,6 +256,10 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
         pdf_paths: List of PDF file paths to convert
         output_dir: Directory to save converted images
         scale: Scaling factor for image conversion (default: 4)
+
+    Raises:
+        Document.DoesNotExist: If a document is not found in the
+        database when trying to convert it
     """
     for path in pdf_paths:
         if check_already_converted(path):
@@ -203,21 +271,9 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
 
         try:
             parent_doc = Document.get(Document.name == file_name)
-
-            pdf = pdfium.PdfDocument(path)
-
-            for i in range(len(pdf)):
-                page = pdf[i]
-                img = create_img_and_pad_divisible_by_32(page, scale=scale)
-                new_name = f"{base_name}_{i}.png"
-                new_path = os.path.join(output_dir, new_name)
-
-                # Save img to output and data to db
-                img.save(new_path)
-                logging.info(f"Page {i} of {file_name} saved as image.")
-                save_img(parent_doc, i, new_path)
-
-            pdf.close()
+            convert_pdf(
+                path, parent_doc, base_name, file_name, output_dir, scale=scale
+            )
         except Document.DoesNotExist:
             logging.error(f"Document {file_name} not found in database.")
             raise ValueError(f"Document {file_name} not found in database.")
@@ -235,9 +291,18 @@ def main_pipeline(config=None):
     output_dir = config.get("output_dir")
     scale = config.get("scale")
     absolute_path = config.get("absolute_path")
+    max_depth = config.get("max_depth")
+    min_file_size = config.get("min_file_size_kb") * 1024
+    max_file_size = config.get("max_file_size_kb") * 1024
 
     os.makedirs(output_dir, exist_ok=True)
-    pdf_paths = get_pdf_paths(pdf_dir, output_dir, absolute_path=absolute_path)
+    pdf_paths = get_pdf_paths(
+        pdf_dir,
+        absolute_path=absolute_path,
+        max_depth=max_depth,
+        min_file_size=min_file_size,
+        max_file_size=max_file_size,
+    )
     convert_pdfs(pdf_paths, output_dir, scale=scale)
 
     logging.info("PDFs converted to images.")
