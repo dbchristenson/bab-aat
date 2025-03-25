@@ -1,16 +1,21 @@
+import functools
 import json
-from functools import wraps
 
-def with_config(config_path):
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            try:
-                with open(config_path, 'r') as file:
-                    config = json.load(file)
-            except (json.JSONDecodeError, FileNotFoundError) as e:
-                print("Error loading config:", e)
-                config = {}
-            return func(*args, config=config, **kwargs)
-        return wrapper
+
+def with_config(func):
+    @functools.wraps(func)
+    def decorator(*args, **kwargs):
+        # Extract the config argument (path to the config file)
+        config_path = kwargs.pop("config", None)
+
+        # Load the config file if a path is provided
+        if config_path:
+            with open(config_path, "r") as file:
+                config = json.load(file)
+            kwargs["config"] = (
+                config  # Pass the loaded config dictionary to the function
+            )
+
+        return func(*args, **kwargs)
+
     return decorator
