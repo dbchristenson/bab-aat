@@ -1,13 +1,16 @@
 import argparse
+import datetime as dt
 import glob
 import logging
 import os
 
 import pypdfium2 as pdfium
 from models import Document, Page
+from peewee import IntegrityError
 from utils.configs import with_config
 from utils.page_to_img import create_img_and_pad_divisible_by_32
 
+# Not relevant for usage on cloud/production
 BASE_DIR = "/Users/dbchristenson/Desktop/python/bab-aat/bab-aat"
 DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
@@ -17,10 +20,125 @@ logging.basicConfig(
     level=logging.INFO,  # Set the logging level
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler("app.log"),  # Log to a file
+        logging.FileHandler("main/logs/pdf_img_pipeline.log"),  # Log to a file
         logging.StreamHandler(),  # Log to the console
     ],
 )
+
+
+def resolve_dir_path(dir_path: str, absolute_path: bool) -> str:
+    if absolute_path:
+        return dir_path
+    else:
+        return os.path.join(DATA_DIR, dir_path)
+
+
+def save_document(file_name: str, file_path: str) -> None:
+    """
+    Saves or updates a document record in the database.
+
+    Checks if document exists and compares metadata (size, modification time).
+    If document is new or changed, creates/updates the database record.
+    Logs all operations and errors.
+
+    Args:
+        file_name: Name of the document file (including extension).
+        file_path: Full absolute path to the document file.
+
+    Raises:
+        IntegrityError: If database constraints are violated during save.
+        OSError: If file metadata cannot be read (implicit from os calls).
+
+    Notes:
+        - Performs atomic update by deleting and recreating changed documents
+        - Compares both file size and last modified timestamp for changes
+        - Logs at INFO level for normal operations, ERROR for failures
+        - Uses Document model which must have fields: name, file_path,
+          file_size, and last_modified
+    """
+    try:
+        # get file metadata
+        file_size = os.path.getsize(file_path)
+        last_modified = dt.datetime.fromtimestamp(os.path.getmtime(file_path))
+
+        existing_doc = Document.get_or_none(
+            (Document.name == file_name) | (Document.file_path == file_path)
+        )
+
+        if existing_doc:
+            # Has the document changed?
+            size_change = existing_doc.file_size != file_size
+            modified_change = existing_doc.last_modified != last_modified
+            if size_change or modified_change:
+                existing_doc.delete_instance()
+                logging.info(f"Document {file_name} has changed, deleting.")
+            else:
+                logging.info(f"Document {file_name} already exists, skipping.")
+                return
+
+        # Create a new document
+        new_document = Document(
+            name=file_name,
+            file_path=file_path,
+            file_size=file_size,
+            last_modified=last_modified,
+        )
+        new_document.save()
+        logging.info(f"Document {file_name} added to the database.")
+
+    except IntegrityError as e:
+        logging.error(f"Error saving document {file_name}: {e}")
+
+
+def get_pdf_paths(
+    dir: str, output_dir: str, absolute_path: bool = False
+) -> list[str]:
+    """Finds all PDFs in a directory, saves to DB, returns full paths.
+
+    Scans directory for PDFs, verifies each file, stores in database.
+    Returns list of full paths to found PDF files.
+
+    Args:
+        dir: Directory to search (relative or absolute path).
+        output_dir: Directory for processed files/output.
+        absolute_path: If True, treats 'dir' as absolute path. If False,
+            resolves relative to current working directory.
+
+    Returns:
+        List of full paths to found PDF files.
+
+    Raises:
+        AssertionError: If no PDFs found in directory.
+
+    Notes:
+        - Only processes '.pdf' files (case-sensitive)
+        - Logs warnings for non-file entries (e.g., directories)
+        - Auto-saves documents via save_document()
+    """
+
+    # Setup and verify the PDF data directory
+    pdf_data_dir = resolve_dir_path(dir, absolute_path)
+
+    pdf_paths = [f for f in os.listdir(pdf_data_dir) if f.endswith(".pdf")]
+    assert len(pdf_paths) > 0, f"No PDF files found in {pdf_data_dir}"
+
+    # Collect the full paths of the PDF files
+    full_pdf_paths = []
+
+    for path in pdf_paths:
+        new_path = os.path.join(pdf_data_dir, path)
+
+        # Check if the path is a file
+        if os.path.isfile(new_path):
+            full_pdf_paths.append(new_path)
+        else:
+            logging.warning(f"{new_path} is not a file")
+            continue
+
+        # Add the document to the database, path acts as the file's name
+        save_document(path, new_path)
+
+    return full_pdf_paths
 
 
 def check_already_converted(path: str, output_dir: str) -> tuple[bool, str]:
@@ -32,58 +150,6 @@ def check_already_converted(path: str, output_dir: str) -> tuple[bool, str]:
         logging.info(f"{path} already converted, skipping...")
 
     return converted, file_name
-
-
-def save_document(file_name: str, file_path: str) -> None:
-    """
-    Save a document to the database.
-    """
-    new_document = Document(name=file_name, file_path=file_path)
-    new_document.save()
-    logging.info(f"Document {file_name} added to the database.")
-
-
-def get_pdf_paths(
-    dir: str, output_dir: str, absolute_path: bool = False
-) -> list[str]:
-    """
-    Get the paths of all PDF files in the specified directory. When working
-    locally, I already defined a base and data directory. When
-    working elsewhere, define the absolute path to the directory containing
-    the PDF files.
-    """
-
-    # Setup and verify the PDF data directory
-    if absolute_path:
-        pdf_data_dir = dir
-    else:
-        pdf_data_dir = os.path.join(DATA_DIR, dir)
-
-    pdf_paths = [f for f in os.listdir(pdf_data_dir) if f.endswith(".pdf")]
-    assert len(pdf_paths) > 0, f"No PDF files found in {pdf_data_dir}"
-
-    # Collect the full paths of the PDF files
-    full_pdf_paths = []
-
-    for path in pdf_paths:
-        # Check if the PDF defined by the path already has been converted
-        converted, file_name = check_already_converted(path, output_dir)
-        if converted:
-            continue
-
-        new_path = os.path.join(pdf_data_dir, path)
-
-        # Check if the path is a file
-        if os.path.isfile(new_path):
-            full_pdf_paths.append(new_path)
-        else:
-            logging.warning(f"{new_path} is not a file")
-            continue
-
-        # Add the document to the database
-        save_document(file_name, new_path)
-
-    return full_pdf_paths
 
 
 def save_img(parent_doc: Document, page_num: int, img_path: str):
@@ -117,7 +183,7 @@ def convert_pdfs(pdf_paths: list, output_dir: str, scale: int = 4):
             logging.info(f"Page {i} of {file_name} saved as {new_name}.")
 
             # Save the image to the database
-            parent_doc = Document.get(Document.name == file_name)
+            parent_doc = Document.get_or_none(Document.name == file_name)
             save_img(parent_doc, i, new_path)
 
         pdf.close()
