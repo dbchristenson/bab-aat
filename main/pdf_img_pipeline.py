@@ -1,6 +1,5 @@
 import argparse
 import datetime as dt
-import glob
 import logging
 import os
 
@@ -93,7 +92,8 @@ def save_document(file_name: str, file_path: str) -> None:
 def get_pdf_paths(
     dir: str, output_dir: str, absolute_path: bool = False
 ) -> list[str]:
-    """Finds all PDFs in a directory, saves to DB, returns full paths.
+    """
+    Finds all PDFs in a directory, saves to DB, returns full paths.
 
     Scans directory for PDFs, verifies each file, stores in database.
     Returns list of full paths to found PDF files.
@@ -115,7 +115,6 @@ def get_pdf_paths(
         - Logs warnings for non-file entries (e.g., directories)
         - Auto-saves documents via save_document()
     """
-
     # Setup and verify the PDF data directory
     pdf_data_dir = resolve_dir_path(dir, absolute_path)
 
@@ -141,52 +140,91 @@ def get_pdf_paths(
     return full_pdf_paths
 
 
-def check_already_converted(path: str, output_dir: str) -> tuple[bool, str]:
-    file_name = path.split("/")[-1]
-    pattern = os.path.join(output_dir, f"{file_name[:-2]}*.png")
+def check_already_converted(pdf_path: str) -> bool:
+    """
+    Check if a PDF has already been fully converted to images.
 
-    converted = glob.glob(pattern)
-    if converted:
-        logging.info(f"{path} already converted, skipping...")
+    Args:
+        pdf_path: Path to the PDF file to check
 
-    return converted, file_name
+    Returns:
+        bool: True if all pages are already converted and in database,
+              False otherwise
+    """
+    file_name = os.path.basename(pdf_path)
+    doc = Document.get_or_none(Document.name == file_name)
+
+    if not doc:
+        return False
+
+    page_count = Page.select().where(Page.document == doc).count()
+
+    try:
+        pdf = pdfium.PdfDocument(pdf_path)
+        num_pages = len(pdf)
+        pdf.close()
+        return page_count == num_pages
+    except Exception as e:
+        logging.error(
+            f"Could not open PDF {pdf_path} for page count verification: {e}"
+        )
+        return False
 
 
 def save_img(parent_doc: Document, page_num: int, img_path: str):
     """
     Save the image to the output directory and add the page to the database.
     """
+    try:
+        Page.create(
+            document=parent_doc, page_number=page_num, img_path=img_path
+        )
+        logging.info(f"Page {page_num} of {parent_doc.name} saved.")
+    except IntegrityError as e:
+        logging.error(f"Error with page {page_num} of {parent_doc.name}: {e}")
 
-    # Save the image
-    new_page = Page(
-        document=parent_doc, page_number=page_num, img_path=img_path
-    )
-    new_page.save()
-    logging.info(f"Page {page_num} of {parent_doc.name} saved.")
 
+def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
+    """
+    Convert PDFs to images while tracking state in database.
 
-def convert_pdfs(pdf_paths: list, output_dir: str, scale: int = 4):
-
+    Args:
+        pdf_paths: List of PDF file paths to convert
+        output_dir: Directory to save converted images
+        scale: Scaling factor for image conversion (default: 4)
+    """
     for path in pdf_paths:
-        file_name = path.split("/")[-1]
-        base_name = file_name.split(".")[0]
-        pdf = pdfium.PdfDocument(path)
+        if check_already_converted(path):
+            logging.info(f"{path} has already been converted. Skipping.")
+            continue
 
-        for i, page in enumerate(pdf):
-            # Convert the page to an image
-            img = create_img_and_pad_divisible_by_32(page, scale=scale)
+        file_name = os.path.basename(path)
+        base_name = os.path.splitext(file_name)[0]
 
-            # Save the image
-            new_name = f"{base_name}_{i}.png"
-            new_path = os.path.join(output_dir, new_name)
-            img.save(new_path)
-            logging.info(f"Page {i} of {file_name} saved as {new_name}.")
+        try:
+            parent_doc = Document.get(Document.name == file_name)
 
-            # Save the image to the database
-            parent_doc = Document.get_or_none(Document.name == file_name)
-            save_img(parent_doc, i, new_path)
+            pdf = pdfium.PdfDocument(path)
 
-        pdf.close()
+            for i in range(len(pdf)):
+                page = pdf[i]
+                img = create_img_and_pad_divisible_by_32(page, scale=scale)
+                new_name = f"{base_name}_{i}.png"
+                new_path = os.path.join(output_dir, new_name)
+
+                # Save img to output and data to db
+                img.save(new_path)
+                logging.info(f"Page {i} of {file_name} saved as image.")
+                save_img(parent_doc, i, new_path)
+
+            pdf.close()
+        except Document.DoesNotExist:
+            logging.error(f"Document {file_name} not found in database.")
+            raise ValueError(f"Document {file_name} not found in database.")
+
+        except Exception as e:
+            logging.error(f"Failed to convert {file_name}: {e}")
+            continue
 
     return
 

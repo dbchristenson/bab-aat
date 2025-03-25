@@ -185,3 +185,6 @@ nn/*
 # SQLite DB
 main.db
 *.db
+
+# imgs
+*.png
