@@ -104,7 +104,6 @@ def get_pdf_paths(
 
     Args:
         dir: Directory to search (relative or absolute path).
-        output_dir: Directory for processed files/output.
         absolute_path: If True, treats 'dir' as absolute path. If False,
             resolves relative to current working directory.
         max_depth: Maximum depth to search for PDFs (default: 10).
@@ -126,21 +125,38 @@ def get_pdf_paths(
     full_pdf_paths = []
 
     for dirpath, _, filenames in os.walk(pdf_data_dir):
+        base_path_length = len(pdf_data_dir)
+        current_depth = dirpath[base_path_length:].count(os.sep)
+
+        # Skip if beyond max depth
+        if max_depth is not None and current_depth > max_depth:
+            continue
+
         for filename in filenames:
             if filename.lower().endswith(".pdf"):
                 full_path = os.path.join(dirpath, filename)
-                if os.path.isfile(full_path):
-                    full_pdf_paths.append(full_path)
-                    # Add the document to the database
-                    save_document(filename, full_path)
-                else:
-                    logging.warning(f"{full_path} is not a file")
 
-    is_paths_empty = len(full_pdf_paths) == 0
-    if is_paths_empty:
-        raise AssertionError(
-            f"No PDF files found in {pdf_data_dir} or its subdirectories"
-        )
+                # Skip if not a file
+                if not os.path.isfile(full_path):
+                    logging.warning(f"Skipping non-file: {full_path}")
+                    continue
+
+                # Check file size
+                file_size = os.path.getsize(full_path)
+                if not (min_file_size <= file_size <= max_file_size):
+                    logging.info(
+                        f"Skipping {filename} - size {file_size} bytes "
+                        f"(outside range {min_file_size}-{max_file_size})"
+                    )
+                    continue
+
+                full_pdf_paths.append(full_path)
+                save_document(filename, full_path)
+
+    assert full_pdf_paths, (
+        f"No PDF files found in {pdf_data_dir} matching criteria "
+        f"(depth<={max_depth}, size {min_file_size}-{max_file_size} bytes)"
+    )
 
     return full_pdf_paths
 
@@ -282,7 +298,6 @@ def main_pipeline(config=None):
     os.makedirs(output_dir, exist_ok=True)
     pdf_paths = get_pdf_paths(
         pdf_dir,
-        output_dir,
         absolute_path=absolute_path,
         max_depth=max_depth,
         min_file_size=min_file_size,
