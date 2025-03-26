@@ -1,0 +1,11 @@
+opencv-python==4.11.0.86
+ipykernel==6.29.5
+numpy==2.2.2
+pandas==2.2.3
+peewee==3.17.6
+Pillow==11.1.0
+pypdfium2==4.30.1
+seaborn==0.13.2
+--extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu123/
+paddlepaddle-gpu==3.0.0b1
+paddleocr==2.0.1
