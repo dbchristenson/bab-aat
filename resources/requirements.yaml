@@ -11,3 +11,4 @@ setuptools==78.1.0
 --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cpu/
 paddlepaddle==3.0.0
 paddleocr==2.0.1
+fitz

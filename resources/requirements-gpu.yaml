@@ -6,6 +6,8 @@ peewee==3.17.6
 Pillow==11.1.0
 pypdfium2==4.30.1
 seaborn==0.13.2
+setuptools==78.1.0
 --extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu123/
 paddlepaddle-gpu==3.0.0b1
 paddleocr==2.0.1
+fitz
