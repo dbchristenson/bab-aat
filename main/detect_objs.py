@@ -6,7 +6,7 @@ import os
 from models import Detection, Page
 from paddleocr import PaddleOCR
 from peewee import *
-from utils.configs import with_config
+from utils.configs import load_config, with_config
 from utils.db_routing import connect_to_db
 from utils.extract_ocr_results import (crop_image, get_bbox, get_confidence,
                                        get_ocr)
@@ -149,14 +149,14 @@ if __name__ == "__main__":
     parser.add_argument("--config", type=str, default="main/configs/detect_objs/paddle_on_local_db.json")
     args = parser.parse_args()
 
-    config = args.config
+    config = load_config(args.config)
 
     output_dir = config.get("output_dir", "cropped_images")
     os.makedirs(output_dir, exist_ok=True)
     logging.info(f"Output directory created at {output_dir}.")
 
-    ocr = config_ocr(config=config)
+    ocr = config_ocr(config=args.config)
 
-    apply_network(ocr=ocr, config=config, output_dir=output_dir)
+    apply_network(ocr=ocr, config=args.config, output_dir=output_dir)
 
 

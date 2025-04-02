@@ -19,3 +19,9 @@ def with_config(func):
         return func(*args, **kwargs)
 
     return decorator
+
+
+def load_config(config_path):
+    """Load a JSON config file."""
+    with open(config_path, 'r') as f:
+        return json.load(f)
