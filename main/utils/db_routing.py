@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 
 
-def connect_to_db(**kwargs) ->Optional[Any]:
+def connect_to_db(**kwargs) -> SqliteDatabase | psycopg2.extensions.connection:
     """
     Connect to the database based on the local flag.
     If local is True, connect to the local database.
@@ -40,7 +40,8 @@ def connect_to_db(**kwargs) ->Optional[Any]:
             db_path = kwargs.get("path")
             db = SqliteDatabase(db_path)
             logging.info(f"Connected to the {'local' if local else 'remote'} database: {db_path}")
-            return db.connect()
+            db.connect()
+            return db
 
         elif local and "path" not in kwargs:
             raise ValueError("When local is True, 'path' must be provided in kwargs.")
