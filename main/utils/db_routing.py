@@ -15,7 +15,7 @@ logging.basicConfig(
 )
 
 
-def connect_to_db(local: bool, **kwargs) ->Optional[Any]:
+def connect_to_db(**kwargs) ->Optional[Any]:
     """
     Connect to the database based on the local flag.
     If local is True, connect to the local database.
@@ -33,6 +33,7 @@ def connect_to_db(local: bool, **kwargs) ->Optional[Any]:
                 - host (str): Hostname of the remote database.
                 - port (int): Port number of the remote database.
     """
+    local = kwargs.get("local", True)
 
     try:
         if local and "path" in kwargs:
