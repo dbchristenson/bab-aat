@@ -1,14 +1,7 @@
 import datetime as dt
 
-from peewee import (
-    CharField,
-    DateTimeField,
-    FloatField,
-    ForeignKeyField,
-    IntegerField,
-    Model,
-    SqliteDatabase,
-)
+from peewee import (CharField, DateTimeField, FloatField, ForeignKeyField,
+                    IntegerField, Model, SqliteDatabase)
 
 db = SqliteDatabase("main.db")
 
@@ -24,6 +17,7 @@ class Document(BaseModel):
     """
 
     name = CharField()
+    document_number = CharField()
     file_path = CharField()
     file_size = IntegerField()  # in bytes
     last_modified = DateTimeField()

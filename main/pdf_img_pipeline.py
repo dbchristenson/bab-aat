@@ -75,9 +75,12 @@ def save_document(file_name: str, file_path: str) -> None:
                 logging.info(f"Document {file_name} already exists, skipping.")
                 return
 
+        document_number = file_name.split(".")[0]
+
         # Create a new document
         new_document = Document(
             name=file_name,
+            document_number=document_number,
             file_path=file_path,
             file_size=file_size,
             last_modified=last_modified,
