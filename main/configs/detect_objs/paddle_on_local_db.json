@@ -1,0 +1,21 @@
+{
+    "paddle": {
+        "use_angle_cls": true,
+        "lang": "en",
+        "det_limit_side_len": 4768
+    },
+    "db": {
+        "local": true,
+        "path": "C:\\Users\\User\\src\\bab-aat\\main.db",
+        "dbname": null,
+        "user": null,
+        "password": null,
+        "host": null,
+        "port": null
+    },
+    "detections": {
+        "output_dir": "cropped_images",
+        "rerun": true,
+        "rerun_page_ids": null
+    }
+}
