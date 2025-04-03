@@ -2,6 +2,7 @@ import argparse
 import datetime as dt
 import logging
 import os
+from typing import Optional
 
 from models import Detection, Page
 from paddleocr import PaddleOCR
@@ -36,21 +37,56 @@ def config_ocr(config=None):
     return ocr
 
 
-def get_pages_to_process(rerun: bool = False, rerun_page_ids: list[int] = False):
+def handle_detection_deletion(page_ids: Optional[list[int]] = None) -> tuple[int, int]:
+    """
+    Delete detection records and their associated cropped image files.
+
+    Args:
+        page_ids: List of page IDs whose detections should be deleted (None for all)
+
+    Returns:
+        tuple: (deleted_records_count, deleted_files_count)
+    """
+    # Query for detections to delete
+    detections_query = Detection.select(Detection.cropped_img_path)
+    if page_ids is not None:
+        detections_query = detections_query.where(Detection.page.in_(page_ids))
+
+    # Delete associated image files
+    deleted_files = 0
+    for detection in detections_query:
+        if detection.cropped_img_path and os.path.exists(detection.cropped_img_path):
+            try:
+                os.remove(detection.cropped_img_path)
+                deleted_files += 1
+            except OSError as e:
+                logging.warning(f"Failed to delete {detection.cropped_img_path}: {e}")
+
+    # Delete database records
+    delete_query = Detection.delete()
+    if page_ids is not None:
+        delete_query = delete_query.where(Detection.page.in_(page_ids))
+
+    deleted_records = delete_query.execute()
+
+    logging.info(f"Deleted {deleted_records} detection records and {deleted_files} image files")
+    return deleted_records, deleted_files
+
+
+def get_pages_to_process(rerun: bool = False, rerun_page_ids: Optional[list[int]] = None):
     """
     Get all pages that have not been processed yet.
+
+    Args:
+        rerun (bool): Whether to rerun the detections.
+        rerun_page_ids (list): List of page IDs to rerun.
     """
     if rerun:
-        query = Page.select()
-        if rerun_page_ids is not None:
-            query = query.where(Page.id.in_(rerun_page_ids))
+        if rerun_page_ids is not None and not isinstance(rerun_page_ids, list):
+            raise ValueError("rerun_page_ids must be a list of integers or None")
 
-        deleted_count = (
-            Detection.delete().
-            where(Detection.page_id.in_(query))
-            .execute()
-        )
-        logging.info(f"Deleted {deleted_count} detections.")
+        # Handle deletion
+        handle_detection_deletion(rerun_page_ids)
 
     pages = (
         Page.select()
@@ -70,9 +106,10 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         page (Page): The page object to get detections for.
     """
 
-    result = ocr.ocr(page.path, cls=True)
+    result = ocr.ocr(page.img_path, cls=True)
+    logging.info(f"Detected {len(result[0])} text lines on page {page.id}.")
 
-    for line in result[0]:
+    for idx, line in enumerate(result[0]):
         bbox = get_bbox(line)
         ocr_text = get_ocr(line)
         confidence = get_confidence(line)
@@ -87,8 +124,8 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         width = bbox[2][0] - bbox[0][0]
         height = bbox[2][1] - bbox[0][1]
 
-        img = crop_image(page.path, bbox)
-        save_path = os.path.join(output_dir, f"{page.id}.png")
+        img = crop_image(page.img_path, bbox)
+        save_path = os.path.join(output_dir, f"{page.id}_detection_{idx}.png")
         img.save(save_path)
 
         Detection.create(
@@ -109,7 +146,7 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
 
 
 @with_config
-def apply_network(ocr: PaddleOCR, config=None, output_dir=None):
+def apply_network(ocr: PaddleOCR, config=None):
     """
     Apply the network to images in the given directory. The images
     are converted from PDF to PNG page by page.
@@ -119,19 +156,23 @@ def apply_network(ocr: PaddleOCR, config=None, output_dir=None):
         db_args (dict): Database connection arguments.
     """
     logging.info("Applying OCR network to images...")
-
     db_conf = config.get("db")
     db = connect_to_db(**db_conf)
 
+    detections_conf = config.get("detections")
+    output_dir = detections_conf.get("output_dir")
+    rerun = detections_conf.get("rerun", False)
+    rerun_page_ids = detections_conf.get("rerun_page_ids", None)
+
     # Get all page images
     with db.atomic():
-        pages = get_pages_to_process(output_dir)
+        pages = get_pages_to_process(rerun=rerun, rerun_page_ids=rerun_page_ids)
 
     # Apply detections and save results
     for page in pages:
         logging.info(f"Processing page {page.id}...")
         try:
-            get_detections(ocr, page)
+            get_detections(ocr, page, output_dir=output_dir)
         except Exception as e:
             logging.error(f"Failed to process page {page.id}: {e}")
             continue
@@ -150,13 +191,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = load_config(args.config)
-
     output_dir = config.get("output_dir", "cropped_images")
     os.makedirs(output_dir, exist_ok=True)
     logging.info(f"Output directory created at {output_dir}.")
 
     ocr = config_ocr(config=args.config)
 
-    apply_network(ocr=ocr, config=args.config, output_dir=output_dir)
+    apply_network(ocr=ocr, config=args.config)
 
 

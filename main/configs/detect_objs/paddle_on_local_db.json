@@ -12,5 +12,10 @@
         "password": null,
         "host": null,
         "port": null
+    },
+    "detections": {
+        "output_dir": "cropped_images",
+        "rerun": true,
+        "rerun_page_ids": null
     }
 }
