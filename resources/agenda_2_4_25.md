@@ -1,5 +1,6 @@
 Detections
 	- Collect ALL detections even non-tagged ones
+	- 3/4/25 FEATURE COMPLETE, STABILITY TESTING STILL REQUIRED
 
 Annotating
 	- Setup portable tagging service
