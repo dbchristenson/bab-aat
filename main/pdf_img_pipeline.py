@@ -59,9 +59,12 @@ def save_document(file_name: str, file_path: str) -> None:
         # get file metadata
         file_size = os.path.getsize(file_path)
         last_modified = dt.datetime.fromtimestamp(os.path.getmtime(file_path))
+        document_number = file_name.split(".")[0]
 
         existing_doc = Document.get_or_none(
-            (Document.name == file_name) | (Document.file_path == file_path)
+            (Document.name == file_name) |
+            (Document.file_path == file_path) |
+            (Document.document_number == document_number)
         )
 
         if existing_doc:
@@ -74,8 +77,6 @@ def save_document(file_name: str, file_path: str) -> None:
             else:
                 logging.info(f"Document {file_name} already exists, skipping.")
                 return
-
-        document_number = file_name.split(".")[0]
 
         # Create a new document
         new_document = Document(
