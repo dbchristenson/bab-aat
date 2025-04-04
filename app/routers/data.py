@@ -6,7 +6,6 @@ from app.schemas.pydantic_models import (
     DocumentResponse,
     PageResponse,
 )
-from main.models import Detection, Document, Page
 
 router = APIRouter()
 
@@ -17,6 +16,8 @@ async def get_documents(limit: int = None):
     Get all documents or a limited number of documents.
     If a limit is provided, return that many documents.
     """
+    from main.models import Document
+
     documents = Document.select().execute()
 
     # TODO - Implement different queries
@@ -32,6 +33,8 @@ async def get_pages(limit: int = None):
     Get all pages or a limited number of pages.
     If a limit is provided, return that many pages.
     """
+    from main.models import Page
+
     pages = Page.select().execute()
 
     # TODO - Implement different queries
@@ -47,6 +50,8 @@ async def get_detections(limit: int = None):
     Get all detections or a limited number of detections.
     If a limit is provided, return that many detections.
     """
+    from main.models import Detection
+
     detections = Detection.select().execute()
 
     # TODO - Implement different queries
@@ -61,6 +66,8 @@ async def get_document(document_number: str):
     """
     Get a document by its document number.
     """
+    from main.models import Document
+
     doc = Document.get_or_none(Document.document_number == document_number)
 
     return {"document": doc}
@@ -71,6 +78,8 @@ async def get_page(page_id: int):
     """
     Get a page by its ID.
     """
+    from main.models import Page
+
     page = Page.get_or_none(Page.id == page_id)
 
     return {"page": page}
@@ -81,6 +90,8 @@ async def get_detection(detection_id: int):
     """
     Get a detection by its ID.
     """
+    from main.models import Detection
+
     detection = Detection.get_or_none(Detection.id == detection_id)
 
     return {"detection": detection}

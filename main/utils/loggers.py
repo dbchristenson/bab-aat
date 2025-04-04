@@ -3,7 +3,7 @@ import os
 from logging.handlers import RotatingFileHandler
 
 
-def setup_logging():
+def setup_logging(logger_name: str = "detect_objs"):
     """Robust logging setup that survives PaddleOCR's configuration"""
     # Create logs directory if needed
     os.makedirs("main/logs", exist_ok=True)
@@ -19,13 +19,15 @@ def setup_logging():
         logger.removeFilter(filter)
 
     # Create formatter
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
     # File handler with rotation
     file_handler = RotatingFileHandler(
-        "main/logs/detect_objs.log",
-        maxBytes=5*1024*1024,  # 5MB
-        backupCount=3
+        f"main/logs/{logger_name}.log",
+        maxBytes=5 * 1024 * 1024,  # 5MB
+        backupCount=3,
     )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)

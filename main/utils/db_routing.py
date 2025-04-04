@@ -1,6 +1,6 @@
 import logging
 
-from peewee import PostgresqlDatabase, SqliteDatabase
+from peewee import DatabaseProxy, PostgresqlDatabase, SqliteDatabase
 
 # Setup logging
 logging.basicConfig(
@@ -15,18 +15,23 @@ logging.basicConfig(
 
 class DatabaseManager:
     def __init__(self):
-        self.db = None
+        self.proxy = DatabaseProxy()
+        self._db = None
 
     def connect(self, **kwargs):
+        if self._db is not None:
+            logging.warning("Database is already connected.")
+            return self._db
+
         local = kwargs.get("local", True)
 
         try:
             if local:
                 db_path = kwargs.get("path", "main.db")
-                self.db = SqliteDatabase(db_path)
+                self._db = SqliteDatabase(db_path)
                 logging.info(f"Connected to the local database: {db_path}")
             else:
-                self.db = PostgresqlDatabase(
+                self._db = PostgresqlDatabase(
                     dbname=kwargs["dbname"],
                     user=kwargs["user"],
                     password=kwargs["password"],
@@ -40,17 +45,27 @@ class DatabaseManager:
                     )
                 )
 
-            self.db.connect()
-            return self.db
+            self.proxy.initialize(self.db)
+            self._db.connect()
+            return self._db
 
         except Exception as e:
             logging.exception("Failed to connect to the database.")
             raise e
 
     def close(self):
-        if self.db:
-            self.db.close()
+        if self._db:
+            self._db.close()
+            self._db = None
+            self.proxy.initialize(None)
             logging.info("Database connection closed.")
+
+    @property
+    def db(self):
+        """Get the actual database instance (not the proxy)"""
+        if self._db is None:
+            raise RuntimeError("Database not connected")
+        return self._db
 
 
 db_manager = DatabaseManager()

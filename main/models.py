@@ -11,10 +11,12 @@ from peewee import (
 
 from main.utils.db_routing import db_manager
 
+db_proxy = db_manager.proxy
+
 
 class BaseModel(Model):
     class Meta:
-        database = db_manager.db
+        database = db_proxy
 
 
 class Document(BaseModel):
