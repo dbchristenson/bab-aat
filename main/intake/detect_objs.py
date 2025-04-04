@@ -106,6 +106,7 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         page (Page): The page object to get detections for.
     """
 
+    document = page.document
     result = ocr.ocr(page.img_path, cls=True)
     logging.info(f"Detected {len(result[0])} text lines on page {page.id}.")
 
@@ -129,6 +130,7 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         img.save(save_path)
 
         Detection.create(
+            document=document,
             page=page,
             ocr_text=ocr_text,
             x_center=x_center,

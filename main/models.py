@@ -17,7 +17,7 @@ class Document(BaseModel):
     """
 
     name = CharField()
-    document_number = CharField()
+    document_number = CharField(null=True)
     file_path = CharField()
     file_size = IntegerField()  # in bytes
     last_modified = DateTimeField()
@@ -46,6 +46,7 @@ class Detection(BaseModel):
     A detection is an object detected in an image.
     """
 
+    document = ForeignKeyField(Document, backref="detections", on_delete="CASCADE")
     page = ForeignKeyField(Page, backref="detections", on_delete="CASCADE")
     ocr_text = CharField()
     x_center = FloatField(null=True)
