@@ -2,8 +2,6 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from main.models import Document, Page
-
 
 class DocumentResponse(BaseModel):
     """
@@ -19,7 +17,7 @@ class DocumentResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class PageResponse(BaseModel):
@@ -28,13 +26,13 @@ class PageResponse(BaseModel):
     This model is used to validate the data returned by the API.
     """
 
-    document: Document
+    document: int  # Unique Document ID
     page_number: int  # 0-indexed
     img_path: str
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class DetectionResponse(BaseModel):
@@ -43,8 +41,8 @@ class DetectionResponse(BaseModel):
     This model is used to validate the data returned by the API.
     """
 
-    document: Document
-    page: Page
+    document: int  # Unique Document ID
+    page: int  # Unique Page ID
     ocr_text: str
     x_center: float
     y_center: float
@@ -55,4 +53,4 @@ class DetectionResponse(BaseModel):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

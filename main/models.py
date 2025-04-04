@@ -8,7 +8,8 @@ from peewee import (
     IntegerField,
     Model,
 )
-from utils.db_routing import db_manager
+
+from main.utils.db_routing import db_manager
 
 
 class BaseModel(Model):

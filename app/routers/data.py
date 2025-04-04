@@ -1,12 +1,12 @@
 import requests
 from fastapi import APIRouter
-from schemas.pydantic_models import (
+
+from app.schemas.pydantic_models import (
     DetectionResponse,
     DocumentResponse,
     PageResponse,
 )
-
-from main.models import Detections, Document, Page
+from main.models import Detection, Document, Page
 
 router = APIRouter()
 
@@ -47,9 +47,9 @@ async def get_detections(limit: int = None):
     Get all detections or a limited number of detections.
     If a limit is provided, return that many detections.
     """
-    # TODO - Implement different queries
+    detections = Detection.select().execute()
 
-    detections = Detections.select().execute()
+    # TODO - Implement different queries
 
     if limit is not None:
         return detections[:limit]
@@ -81,7 +81,7 @@ async def get_detection(detection_id: int):
     """
     Get a detection by its ID.
     """
-    detection = Detections.get_or_none(Detections.id == detection_id)
+    detection = Detection.get_or_none(Detection.id == detection_id)
 
     return {"detection": detection}
 
