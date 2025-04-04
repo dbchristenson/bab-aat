@@ -18,7 +18,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
-app.include_router(data.router, prefix="/documents", tags=["documents"])
+app.include_router(data.router, prefix="/data", tags=["data"])
 app.include_router(upload.router, prefix="/upload", tags=["upload"])
 
 
