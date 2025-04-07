@@ -2,6 +2,20 @@ from django.db import models
 
 
 # Create your models here.
+class Vessel(models.Model):
+    """
+    A vessel is a ship or boat that is associated with a document.
+    Each vessel has a unique name. These are changed manually as new
+    vessels are not commonly added.
+    Params:
+        name (str): The name of the vessel.
+        created_at (datetime): The date when the vessel was created.
+    """
+
+    name = models.CharField(max_length=255, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class Document(models.Model):
     """
     A document is a collection of pages representing engineering documents.
@@ -17,7 +31,9 @@ class Document(models.Model):
     """
 
     name = models.CharField(max_length=255)
-    vessel = models.CharField(max_length=255, null=True)
+    vessel = models.ForeignKey(
+        Vessel, related_name="documents", on_delete=models.CASCADE, null=True
+    )
     document_number = models.CharField(max_length=255, null=True)
     file_path = models.CharField(max_length=255)
     file_size = models.IntegerField()  # in bytes
