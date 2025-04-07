@@ -1,6 +1,8 @@
 from django.http import HttpResponse
 from django.shortcuts import render
-from models import Detection, Document, Page
+
+from ocr.main.intake.pdf_img_pipeline import main_pipeline
+from ocr.models import Detection, Document, Page
 
 
 # Create your views here.

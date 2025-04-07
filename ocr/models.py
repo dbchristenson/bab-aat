@@ -8,6 +8,7 @@ class Document(models.Model):
 
     Params:
         name (str): The name of the document.
+        vessel (str): The name of the vessel associated with the document, optional.    # noqa E501
         document_number (str): The document number.
         file_path (str): The path to the document file.
         file_size (int): The size of the document file in bytes.
@@ -16,6 +17,7 @@ class Document(models.Model):
     """
 
     name = models.CharField(max_length=255)
+    vessel = models.CharField(max_length=255, null=True)
     document_number = models.CharField(max_length=255, null=True)
     file_path = models.CharField(max_length=255)
     file_size = models.IntegerField()  # in bytes

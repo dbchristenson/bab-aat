@@ -8,12 +8,12 @@ import pypdfium2 as pdfium
 # new imports
 from django.db import IntegrityError
 from django.db.models import Q
-from models import Document, Page
-from utils.configs import with_config
-from utils.loggers import basic_logging
-from utils.page_to_img import create_img_and_pad_divisible_by_32
 
 from babaatsite.settings import BASE_DIR
+from ocr.main.utils.configs import with_config
+from ocr.main.utils.loggers import basic_logging
+from ocr.main.utils.page_to_img import create_img_and_pad_divisible_by_32
+from ocr.models import Document, Page
 
 # Setup logging
 basic_logging("pdf_img_pipeline")
