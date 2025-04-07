@@ -62,9 +62,9 @@ def save_document(file_name: str, file_path: str) -> None:
         document_number = file_name.split(".")[0]
 
         existing_doc = Document.get_or_none(
-            (Document.name == file_name) |
-            (Document.file_path == file_path) |
-            (Document.document_number == document_number)
+            (Document.name == file_name)
+            | (Document.file_path == file_path)
+            | (Document.document_number == document_number)
         )
 
         if existing_doc:
