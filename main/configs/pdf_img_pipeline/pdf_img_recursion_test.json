@@ -1,6 +1,6 @@
 {
     "pdf_dir": "C:\\Users\\User\\src\\mp-docs-recursion",
-    "output_dir": "marine-process-imgs",
+    "output_dir": "resources/marine-process-imgs",
     "scale": 4,
     "absolute_path": false,
     "max_depth": 10,

@@ -6,11 +6,15 @@ from typing import Optional
 
 from models import Detection, Page
 from paddleocr import PaddleOCR
-from peewee import *
+from peewee import JOIN
 from utils.configs import load_config, with_config
 from utils.db_routing import connect_to_db
-from utils.extract_ocr_results import (crop_image, get_bbox, get_confidence,
-                                       get_ocr)
+from utils.extract_ocr_results import (
+    crop_image,
+    get_bbox,
+    get_confidence,
+    get_ocr,
+)
 from utils.loggers import setup_logging
 
 
@@ -37,12 +41,15 @@ def config_ocr(config=None):
     return ocr
 
 
-def handle_detection_deletion(page_ids: Optional[list[int]] = None) -> tuple[int, int]:
+def handle_detection_deletion(
+    page_ids: Optional[list[int]] = None,
+) -> tuple[int, int]:
     """
     Delete detection records and their associated cropped image files.
 
     Args:
-        page_ids: List of page IDs whose detections should be deleted (None for all)
+        page_ids: List of page IDs whose detections should be deleted,
+                  if None, all detections will be deleted.
 
     Returns:
         tuple: (deleted_records_count, deleted_files_count)
@@ -55,12 +62,16 @@ def handle_detection_deletion(page_ids: Optional[list[int]] = None) -> tuple[int
     # Delete associated image files
     deleted_files = 0
     for detection in detections_query:
-        if detection.cropped_img_path and os.path.exists(detection.cropped_img_path):
+        if detection.cropped_img_path and os.path.exists(
+            detection.cropped_img_path
+        ):
             try:
                 os.remove(detection.cropped_img_path)
                 deleted_files += 1
             except OSError as e:
-                logging.warning(f"Failed to delete {detection.cropped_img_path}: {e}")
+                logging.warning(
+                    f"Failed to delete {detection.cropped_img_path}: {e}"
+                )
 
     # Delete database records
     delete_query = Detection.delete()
@@ -69,11 +80,16 @@ def handle_detection_deletion(page_ids: Optional[list[int]] = None) -> tuple[int
 
     deleted_records = delete_query.execute()
 
-    logging.info(f"Deleted {deleted_records} detection records and {deleted_files} image files")
+    logging.info(
+        f"Deleted {deleted_records} detection records "
+        f"and {deleted_files} image files"
+    )
     return deleted_records, deleted_files
 
 
-def get_pages_to_process(rerun: bool = False, rerun_page_ids: Optional[list[int]] = None):
+def get_pages_to_process(
+    rerun: bool = False, rerun_page_ids: Optional[list[int]] = None
+):
     """
     Get all pages that have not been processed yet.
 
@@ -83,7 +99,9 @@ def get_pages_to_process(rerun: bool = False, rerun_page_ids: Optional[list[int]
     """
     if rerun:
         if rerun_page_ids is not None and not isinstance(rerun_page_ids, list):
-            raise ValueError("rerun_page_ids must be a list of integers or None")
+            raise ValueError(
+                "rerun_page_ids must be a list of integers or None"
+            )
 
         # Handle deletion
         handle_detection_deletion(rerun_page_ids)
@@ -98,7 +116,9 @@ def get_pages_to_process(rerun: bool = False, rerun_page_ids: Optional[list[int]
     return pages
 
 
-def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images"):
+def get_detections(
+    ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images"
+):
     """
     Get all detections for a given page.
 
@@ -106,6 +126,7 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         page (Page): The page object to get detections for.
     """
 
+    document = page.document
     result = ocr.ocr(page.img_path, cls=True)
     logging.info(f"Detected {len(result[0])} text lines on page {page.id}.")
 
@@ -114,7 +135,9 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         ocr_text = get_ocr(line)
         confidence = get_confidence(line)
 
-        logging.info(f"Detected text: '{ocr_text}' with confidence: {confidence} at {bbox}")
+        logging.info(
+            f"Detected: '{ocr_text}' with confidence: {confidence} at {bbox}"
+        )
 
         # Bbox -> [[i0], [i1], [i2], [i3]]
         # Drawn bottom left -> bottom right -> top right -> top left
@@ -129,6 +152,7 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
         img.save(save_path)
 
         Detection.create(
+            document=document,
             page=page,
             ocr_text=ocr_text,
             x_center=x_center,
@@ -140,7 +164,9 @@ def get_detections(ocr: PaddleOCR, page: Page, output_dir: str = "cropped_images
             created_at=dt.datetime.now(),
         )
 
-        logging.info(f"Created detection for page {page.id} with text: '{ocr_text}'")
+        logging.info(
+            f"Created detection for page {page.id} with text: '{ocr_text}'"
+        )
 
     return
 
@@ -166,7 +192,8 @@ def apply_network(ocr: PaddleOCR, config=None):
 
     # Get all page images
     with db.atomic():
-        pages = get_pages_to_process(rerun=rerun, rerun_page_ids=rerun_page_ids)
+        params = {"rerun": rerun, "rerun_page_ids": rerun_page_ids}
+        pages = get_pages_to_process(**params)
 
     # Apply detections and save results
     for page in pages:
@@ -187,7 +214,11 @@ if __name__ == "__main__":
     logging.info("Starting OCR application...")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config", type=str, default="main/configs/detect_objs/paddle_on_local_db.json")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="main/configs/detect_objs/paddle_on_local_db.json",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -198,5 +229,3 @@ if __name__ == "__main__":
     ocr = config_ocr(config=args.config)
 
     apply_network(ocr=ocr, config=args.config)
-
-

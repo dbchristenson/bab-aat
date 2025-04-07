@@ -12,3 +12,4 @@ paddlepaddle-gpu==3.0.0b1
 paddleocr==2.0.1
 fitz
 psycopg2==2.9.10
+fastapi[standard]

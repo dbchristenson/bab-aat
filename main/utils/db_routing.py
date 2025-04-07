@@ -1,8 +1,6 @@
 import logging
-from typing import Any, Optional
 
-import psycopg2
-from peewee import SqliteDatabase
+from peewee import DatabaseProxy, PostgresqlDatabase, SqliteDatabase
 
 # Setup logging
 logging.basicConfig(
@@ -15,51 +13,59 @@ logging.basicConfig(
 )
 
 
-def connect_to_db(**kwargs) -> SqliteDatabase | psycopg2.extensions.connection:
-    """
-    Connect to the database based on the local flag.
-    If local is True, connect to the local database.
-    If local is False, connect to the remote database.
+class DatabaseManager:
+    def __init__(self):
+        self.proxy = DatabaseProxy()
+        self._db = None
 
-    Args:
-        local (bool): Flag to indicate local or remote connection.
-        **kwargs: Additional arguments for connection parameters.
-            - if local is True:
-                - path (str): Path to the local database.
-            - if local is False:
-                - db_name (str): Name of the remote database.
-                - user (str): Username for the remote database.
-                - password (str): Password for the remote database.
-                - host (str): Hostname of the remote database.
-                - port (int): Port number of the remote database.
-    """
-    local = kwargs.get("local", True)
+    def connect(self, **kwargs):
+        if self._db is not None:
+            logging.warning("Database is already connected.")
+            return self._db
 
-    try:
-        if local and "path" in kwargs:
-            db_path = kwargs.get("path")
-            db = SqliteDatabase(db_path)
-            logging.info(f"Connected to the {'local' if local else 'remote'} database: {db_path}")
-            db.connect()
-            return db
+        local = kwargs.get("local", True)
 
-        elif local and "path" not in kwargs:
-            raise ValueError("When local is True, 'path' must be provided in kwargs.")
+        try:
+            if local:
+                db_path = kwargs.get("path", "main.db")
+                self._db = SqliteDatabase(db_path)
+                logging.info(f"Connected to the local database: {db_path}")
+            else:
+                self._db = PostgresqlDatabase(
+                    dbname=kwargs["dbname"],
+                    user=kwargs["user"],
+                    password=kwargs["password"],
+                    host=kwargs["host"],
+                    port=kwargs["port"],
+                )
+                logging.info(
+                    (
+                        f"Connected remote database: {kwargs['db_name']} at "
+                        f"{kwargs['host']}:{kwargs['port']}"
+                    )
+                )
 
-        else:
-            required_params = ["db_name", "user", "password", "host", "port"]
-            for param in required_params:
-                if param not in kwargs:
-                    raise ValueError(f"For remote connection, missing required parameter: {param}")
+            self.proxy.initialize(self.db)
+            self._db.connect()
+            return self._db
 
-            return psycopg2.connect(
-                dbname=kwargs["db_name"],
-                user=kwargs["user"],
-                password=kwargs["password"],
-                host=kwargs["host"],
-                port=kwargs["port"],
-            )
+        except Exception as e:
+            logging.exception("Failed to connect to the database.")
+            raise e
 
-    except Exception as e:
-        logging.exception("Failed to connect to the database.")
-        raise e
+    def close(self):
+        if self._db:
+            self._db.close()
+            self._db = None
+            self.proxy.initialize(None)
+            logging.info("Database connection closed.")
+
+    @property
+    def db(self):
+        """Get the actual database instance (not the proxy)"""
+        if self._db is None:
+            raise RuntimeError("Database not connected")
+        return self._db
+
+
+db_manager = DatabaseManager()

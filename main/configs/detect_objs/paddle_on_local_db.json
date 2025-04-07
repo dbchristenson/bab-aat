@@ -14,7 +14,7 @@
         "port": null
     },
     "detections": {
-        "output_dir": "cropped_images",
+        "output_dir": "resources/cropped_images",
         "rerun": true,
         "rerun_page_ids": null
     }
