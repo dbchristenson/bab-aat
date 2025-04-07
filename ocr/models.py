@@ -22,6 +22,9 @@ class Document(models.Model):
     last_modified = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return self.name
+
 
 class Page(models.Model):
     """
@@ -40,6 +43,9 @@ class Page(models.Model):
     page_number = models.IntegerField()  # 0-indexed
     img_path = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.document.name} - Page {self.page_number}"
 
 
 class Detection(models.Model):
@@ -60,6 +66,9 @@ class Detection(models.Model):
     confidence = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
+
 
 class Truth(models.Model):
     """
@@ -77,3 +86,6 @@ class Truth(models.Model):
     )
     text = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.document.name} - {self.text}"

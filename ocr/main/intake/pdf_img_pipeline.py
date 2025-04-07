@@ -4,16 +4,16 @@ import logging
 import os
 
 import pypdfium2 as pdfium
+
+# new imports
+from django.db import IntegrityError
+from django.db.models import Q
 from models import Document, Page
-from peewee import IntegrityError
 from utils.configs import with_config
 from utils.loggers import basic_logging
 from utils.page_to_img import create_img_and_pad_divisible_by_32
 
-# Not relevant for usage on cloud/production
-BASE_DIR = "/Users/dbchristenson/Desktop/python/bab-aat/bab-aat"
-DATA_DIR = os.path.join(BASE_DIR, "data")
-OUTPUT_DIR = os.path.join(DATA_DIR, "output")
+from babaatsite.settings import BASE_DIR
 
 # Setup logging
 basic_logging("pdf_img_pipeline")
@@ -23,7 +23,7 @@ def resolve_dir_path(dir_path: str, absolute_path: bool) -> str:
     if absolute_path:
         return dir_path
     else:
-        return os.path.join(DATA_DIR, dir_path)
+        return os.path.join(BASE_DIR, dir_path)
 
 
 def save_document(file_name: str, file_path: str) -> None:
@@ -55,10 +55,10 @@ def save_document(file_name: str, file_path: str) -> None:
         last_modified = dt.datetime.fromtimestamp(os.path.getmtime(file_path))
         document_number = file_name.split(".")[0]
 
-        existing_doc = Document.get_or_none(
-            (Document.name == file_name)
-            | (Document.file_path == file_path)
-            | (Document.document_number == document_number)
+        existing_doc = Document.objects.filter(
+            Q(Document.name == file_name)
+            | Q(Document.file_path == file_path)
+            | Q(Document.document_number == document_number)
         )
 
         if existing_doc:
@@ -66,7 +66,7 @@ def save_document(file_name: str, file_path: str) -> None:
             size_change = existing_doc.file_size != file_size
             modified_change = existing_doc.last_modified != last_modified
             if size_change or modified_change:
-                existing_doc.delete_instance()
+                existing_doc.delete()
                 logging.info(f"Document {file_name} has changed, deleting.")
             else:
                 logging.info(f"Document {file_name} already exists, skipping.")
@@ -171,12 +171,12 @@ def check_already_converted(pdf_path: str) -> bool:
               False otherwise
     """
     file_name = os.path.basename(pdf_path)
-    doc = Document.get_or_none(Document.name == file_name)
+    doc = Document.objects.filter(Document.name == file_name)
 
     if not doc:
         return False
 
-    page_count = Page.select().where(Page.document == doc).count()
+    page_count = Page.objects.filter(Page.document == doc).count()
 
     try:
         pdf = pdfium.PdfDocument(pdf_path)
@@ -203,7 +203,7 @@ def save_img_to_db(parent_doc: Document, page_num: int, img_path: str):
         IntegrityError: If database constraints are violated during
     """
     try:
-        Page.create(
+        Page.objects.create(
             document=parent_doc, page_number=page_num, img_path=img_path
         )
         logging.info(f"Page {page_num} of {parent_doc.name} saved.")
@@ -268,7 +268,7 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
         base_name = os.path.splitext(file_name)[0]
 
         try:
-            parent_doc = Document.get(Document.name == file_name)
+            parent_doc = Document.objects.get(Document.name == file_name)
             convert_pdf(
                 path, parent_doc, base_name, file_name, output_dir, scale=scale
             )
