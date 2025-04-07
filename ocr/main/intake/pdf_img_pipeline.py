@@ -7,6 +7,7 @@ import pypdfium2 as pdfium
 from models import Document, Page
 from peewee import IntegrityError
 from utils.configs import with_config
+from utils.loggers import basic_logging
 from utils.page_to_img import create_img_and_pad_divisible_by_32
 
 # Not relevant for usage on cloud/production
@@ -15,14 +16,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 OUTPUT_DIR = os.path.join(DATA_DIR, "output")
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,  # Set the logging level
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("main/logs/pdf_img_pipeline.log"),  # Log to a file
-        logging.StreamHandler(),  # Log to the console
-    ],
-)
+basic_logging("pdf_img_pipeline")
 
 
 def resolve_dir_path(dir_path: str, absolute_path: bool) -> str:

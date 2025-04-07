@@ -6,13 +6,16 @@ from logging.handlers import RotatingFileHandler
 def basic_logging(logger_name: str):
     """
     Basic logging setup that does not need to survive PaddleOCR configuration.
+
+    Args:
+        logger_name (str): Name of the logger, without the .log extension.
     """
     logging.basicConfig(
         level=logging.INFO,  # Set the logging level
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.FileHandler(
-                f"main/logs/{logger_name}.log"
+                f"ocr/main/logs/{logger_name}.log"
             ),  # Log to a file
             logging.StreamHandler(),  # Log to the console
         ],
@@ -22,7 +25,7 @@ def basic_logging(logger_name: str):
 def setup_logging(logger_name: str = "detect_objs"):
     """Robust logging setup that survives PaddleOCR's configuration"""
     # Create logs directory if needed
-    os.makedirs("main/logs", exist_ok=True)
+    os.makedirs("ocr/main/logs", exist_ok=True)
 
     # Get root logger
     logger = logging.getLogger()
@@ -41,7 +44,7 @@ def setup_logging(logger_name: str = "detect_objs"):
 
     # File handler with rotation
     file_handler = RotatingFileHandler(
-        f"main/logs/{logger_name}.log",
+        f"ocr/main/logs/{logger_name}.log",
         maxBytes=5 * 1024 * 1024,  # 5MB
         backupCount=3,
     )
