@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from app.routers import data, upload
 from main.models import Detection, Document, Page
 from main.utils.db_routing import db_manager
-from main.utils.loggers import setup_logging
+from main.utils.loggers import basic_logging
 
 
 @asynccontextmanager
@@ -15,9 +15,10 @@ async def lifespan(app: FastAPI):
     Lifespan event handler for FastAPI.
     """
     # logging setup
-    setup_logging("ocr_api")  # Initialize logging system
+    basic_logging("ocr_api")  # Initialize logging system
 
     db_manager.connect(local=True)  # Connect to the local database
+    # TODO : Add remote database connection option
 
     try:
         db_manager.db.create_tables(
