@@ -1,153 +1,132 @@
 <!DOCTYPE html>
-<html lang="en" data-bs-theme="light">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Document Processing System{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Bumi Armada OCR API{% endblock %}</title>
 
-    <!-- Bootstrap 5 CSS -->
+    <!-- Bootstrap 5 CSS (minimal) -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <!-- Font Awesome 6 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    <!-- Custom CSS -->
+    <!-- Custom CSS with color variables -->
     <style>
         :root {
-            --primary-color: #4e73df;
-            --secondary-color: #858796;
-            --accent-color: #f8f9fc;
+            --accent-color: #20b45d;
+            /*--primary-color: #20b45d;*/
+            /* Dark blue-gray */
+            --secondary-color: #7f8c8d;
+            /* Gray */
+            --primary-color: #2b3488;
+            /*--accent-color: #2b3488;*/
+            /* Red */
+            --bg-color: #f8f9fa;
+            /* Light gray background */
         }
 
         body {
-            background-color: #f8f9fa;
-            font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
         }
 
-        .navbar-brand {
-            font-weight: 800;
-            font-size: 1.5rem;
+        .navbar {
+            background-color: var(--primary-color) !important;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--accent-color) !important;
+            border-color: var(--accent-color) !important;
+        }
+
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+
+        .border-primary {
+            border-color: var(--primary-color) !important;
+        }
+
+        .card-header {
+            background-color: var(--primary-color) !important;
         }
 
         .file-drop-area {
-            transition: all 0.3s ease;
+            transition: all 0.2s ease;
             cursor: pointer;
         }
 
         .file-drop-area:hover {
             border-color: var(--primary-color) !important;
-            background-color: rgba(78, 115, 223, 0.05) !important;
+            background-color: rgba(44, 62, 80, 0.05);
         }
 
-        footer {
-            margin-top: auto;
-            padding: 1.5rem 0;
-            background-color: var(--accent-color);
-        }
-
-        .theme-toggle {
-            cursor: pointer;
+        .alert-accent {
+            background-color: rgba(231, 76, 60, 0.1);
+            border-color: rgba(231, 76, 60, 0.3);
+            color: var(--accent-color);
         }
     </style>
-
-    {% block extra_css %}{% endblock %}
 </head>
 
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
+    <!-- Minimal Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'home' %}">
-                <i class="fas fa-file-alt me-2"></i>DocProcessor
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-lock me-2"></i>Bumi Armada OCR API
             </a>
-
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'upload' %}active{% endif %}"
-                            href="{% url 'upload' %}">
-                            <i class="fas fa-upload me-1"></i>Upload
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-database me-1"></i>Documents
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">
-                            <i class="fas fa-cog me-1"></i>Settings
-                        </a>
-                    </li>
-                </ul>
-
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link theme-toggle" id="themeToggle">
-                            <i class="fas fa-moon"></i>
-                        </a>
-                    </li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user-circle me-1"></i>
-                            {% if user.is_authenticated %}
-                            {{ user.username }}
-                            {% else %}
-                            Account
-                            {% endif %}
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            {% if user.is_authenticated %}
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i>Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-history me-2"></i>Activity</a></li>
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
-                            <li><a class="dropdown-item" href="{% url 'logout' %}"><i
-                                        class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
-                            {% else %}
-                            <li><a class="dropdown-item" href="{% url 'login' %}"><i
-                                        class="fas fa-sign-in-alt me-2"></i>Login</a></li>
-                            {% endif %}
-                        </ul>
-                    </li>
-                </ul>
+            <div class="navbar-nav">
+                <a class="nav-link" href="{% url 'admin:index' %}">
+                    <i class="fas fa-user-shield me-1"></i>Admin
+                </a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="flex-shrink-0">
-        <div class="container py-5">
-            {% if messages %}
-            <div class="row">
-                <div class="col-12">
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-
-            {% block content %}
-            <!-- Content will be injected here by child templates -->
-            {% endblock %}
+    <main class="container">
+        {% if messages %}
+        {% for message in messages %}
+        <div
+            class="alert alert-{% if message.tags == 'error' %}accent{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        {% endfor %}
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
     </main>
 
-    <!-- Footer -->
-    <footer class="mt-5">
-        <div class="container text-center">
-            <div class="mb-3">
-                <a href="#" class="text-decoration
+    <!-- Minimal Footer -->
+    <footer class="mt-5 py-3 text-center text-muted small">
+        <div class="container">
+            &copy; {% now "Y" %} Bumi Armada
+        </div>
+    </footer>
+
+    <!-- Required JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+
+    {% block scripts %}
+    {% endblock %}
+</body>
+
+</html>

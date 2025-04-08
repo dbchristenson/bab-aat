@@ -30,5 +30,23 @@ def upload(request):
     else:
         form = UploadFileForm()
         # Render the form for file upload
-        template = "upload.html"
-        return render(request, template, {"form": form})
+        return render(request, "upload.html", {"form": form})
+
+
+def upload_success(request):
+    """
+    Render the upload success page.
+    """
+    return render(request, "upload_success.html")
+
+
+def documents(request):
+    """
+    Render the documents page. This page displays all the documents
+    that have been uploaded. Documents are uploaded to the db before
+    their detections are fully processed and therefore can be viewed
+    before the processing is complete.
+    """
+
+    documents = Document.objects.all()
+    return render(request, "documents.html", documents)
