@@ -1,0 +1,82 @@
+:root {
+    --accent-color: #20b45d;
+    /*--primary-color: #20b45d;*/
+    /* Dark blue-gray */
+    --secondary-color: #7f8c8d;
+    /* Gray */
+    --primary-color: #2b3488;
+    /*--accent-color: #2b3488;*/
+    /* Red */
+    --bg-color: #f8f9fa;
+    /* Light gray background */
+}
+
+body {
+    background-color: var(--bg-color);
+    min-height: 100vh;
+}
+
+ul.errorlist {
+    color: #dc3545;
+    /* Bootstrap's danger color */
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+}
+
+.navbar {
+    background-color: var(--primary-color) !important;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-outline-primary {
+    color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--accent-color) !important;
+    border-color: var(--accent-color) !important;
+}
+
+.text-primary {
+    color: var(--primary-color) !important;
+}
+
+.border-primary {
+    border-color: var(--primary-color) !important;
+}
+
+.card-header {
+    background-color: var(--primary-color) !important;
+}
+
+.file-drop-area {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.file-drop-area:hover {
+    border-color: var(--primary-color) !important;
+    background-color: rgba(44, 62, 80, 0.05);
+}
+
+.alert-accent {
+    background-color: rgba(231, 76, 60, 0.1);
+    border-color: rgba(231, 76, 60, 0.3);
+    color: var(--accent-color);
+}
+
+.was-validated .invalid-feedback {
+    display: block;
+}

@@ -12,3 +12,4 @@ paddleocr==2.0.1
 fitz
 psycopg2==2.9.10
 django==5.2
+python-magig-bin==0.4.14

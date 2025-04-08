@@ -24,12 +24,23 @@ def upload(request):
 
     if request.method == "POST":
         form = UploadFileForm(request.POST, request.FILES)
+        print("ITS POSTING TIME")
         if form.is_valid():
+            print("FORM VALID AF")
             vessel_id = form.cleaned_data["vessel"]
-            file = request.FILES["file"]
-            handle_uploaded_file(file, vessel_id)
+            file = form.cleaned_data["file"]
+
+            try:
+                handle_uploaded_file(file, vessel_id)
+            except Exception as e:
+                print(f"Error processing file: {e}")
+                return render(request, "upload.html", {"form": form})
 
             return render(request, "upload_success.html")
+        else:
+            print("FORM AINT VALID")
+            print(form.errors)
+            return render(request, "upload.html", {"form": form})
     else:
         form = UploadFileForm()
         # Render the form for file upload
