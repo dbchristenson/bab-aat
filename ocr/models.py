@@ -35,7 +35,7 @@ class Document(models.Model):
         Vessel, related_name="documents", on_delete=models.CASCADE, null=True
     )
     document_number = models.CharField(max_length=255, null=True)
-    file_path = models.CharField(max_length=255)
+    file = models.FileField(upload_to="documents/")
     file_size = models.IntegerField()  # in bytes
     last_modified = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,7 +59,7 @@ class Page(models.Model):
         Document, related_name="pages", on_delete=models.CASCADE
     )
     page_number = models.IntegerField()  # 0-indexed
-    img_path = models.CharField(max_length=255)
+    image = models.ImageField(upload_to="pages/")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

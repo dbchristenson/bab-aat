@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Document Upload{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">
+                        <i class="fas fa-file-upload me-2"></i>Document Upload
+                    </h2>
+                </div>
+
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Upload PDF documents or ZIP archives containing multiple PDFs for processing.
+                        Files will be analyzed and stored in our database.
+                    </p>
+
+                    <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+                        {% csrf_token %}
+
+                        <div class="mb-4">
+                            <label for="fileInput" class="form-label fw-bold">
+                                <i class="fas fa-file-pdf me-2 text-danger"></i>Select Files
+                            </label>
+
+                            <div class="file-drop-area border rounded p-4 text-center">
+                                <span class="d-block mb-2">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted"></i>
+                                </span>
+                                <span class="d-block mb-3">Drag & drop files here or click to browse</span>
+                                {{ form.file }}
+                                <div class="invalid-feedback">Please select at least one file.</div>
+
+                                <div class="form-text mt-2">
+                                    Supported formats: .pdf, .zip (max 50MB each)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">
+                                <i class="fas fa-cog me-2 text-primary"></i>Processing Options
+                            </label>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="ocrCheck" checked>
+                                <label class="form-check-label" for="ocrCheck">
+                                    Enable OCR text extraction
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="imgCheck" checked>
+                                <label class="form-check-label" for="imgCheck">
+                                    Generate page images
+                                </label>
+                            </div>
+
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="metaCheck">
+                                <label class="form-check-label" for="metaCheck">
+                                    Extract metadata
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-rocket me-2"></i>Process Documents
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer bg-light">
+                    <div class="row">
+                        <div class="col">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Processing may take several minutes for large files
+                            </small>
+                        </div>
+                        <div class="col-auto">
+                            <a href="#" class="small" data-bs-toggle="modal" data-bs-target="#helpModal">
+                                <i class="fas fa-question-circle me-1"></i>Help
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Upload Help</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6 class="fw-bold">Accepted Files:</h6>
+                <ul>
+                    <li>PDF documents (.pdf)</li>
+                    <li>ZIP archives containing multiple PDFs (.zip)</li>
+                </ul>
+
+                <h6 class="fw-bold mt-3">Processing Includes:</h6>
+                <ul>
+                    <li>Text extraction from documents</li>
+                    <li>Page image generation</li>
+                    <li>Metadata extraction (when enabled)</li>
+                </ul>
+
+                <div class="alert alert-info mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Large files may take several minutes to process.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Enhanced file input styling
+    document.addEventListener('DOMContentLoaded', function () {
+        const fileInput = document.querySelector('input[type="file"]');
+        const fileDropArea = document.querySelector('.file-drop-area');
+
+        // Highlight drop area when dragging over
+        ['dragenter', 'dragover'].forEach(eventName => {
+            fileDropArea.addEventListener(eventName, () => {
+                fileDropArea.classList.add('border-primary', 'bg-light');
+            });
+        });
+
+        // Remove highlight when dragging leaves
+        ['dragleave', 'drop'].forEach(eventName => {
+            fileDropArea.addEventListener(eventName, () => {
+                fileDropArea.classList.remove('border-primary', 'bg-light');
+            });
+        });
+
+        // Update display when files are selected
+        fileInput.addEventListener('change', function () {
+            if (this.files.length > 0) {
+                const fileName = this.files.length === 1
+                    ? this.files[0].name
+                    : `${this.files.length} files selected`;
+                fileDropArea.querySelector('span:nth-child(2)').textContent = fileName;
+            }
+        });
+
+        // Form validation
+        const form = document.querySelector('.needs-validation');
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    });
+</script>
+{% endblock %}

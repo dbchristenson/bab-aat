@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from django.shortcuts import render
 
+from ocr.forms import UploadFileForm
 from ocr.main.intake.pdf_img_pipeline import main_pipeline
 from ocr.models import Detection, Document, Page
 
@@ -22,7 +23,12 @@ def upload(request):
     """
 
     if request.method == "POST":
-        # Handle file upload and processing here
-        pass
-
-    return render(request, "ocr/upload.html")
+        form = UploadFileForm(request.POST, request.FILES)
+        if form.is_valid():
+            # TODO Process some shit
+            return HttpResponse("File uploaded successfully!")
+    else:
+        form = UploadFileForm()
+        # Render the form for file upload
+        template = "upload.html"
+        return render(request, template, {"form": form})
