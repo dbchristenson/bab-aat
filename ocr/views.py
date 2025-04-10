@@ -1,9 +1,14 @@
+import logging
+
 from django.http import HttpResponse
 from django.shortcuts import render
 
 from ocr.forms import UploadFileForm
 from ocr.main.intake.handle_upload import handle_uploaded_file
+from ocr.main.utils.loggers import basic_logging
 from ocr.models import Detection, Document, Page
+
+basic_logging(__name__)
 
 
 # Create your views here.
@@ -23,23 +28,22 @@ def upload(request):
     """
 
     if request.method == "POST":
+        logging.info("Received a POST request for file upload.")
         form = UploadFileForm(request.POST, request.FILES)
-        print("ITS POSTING TIME")
         if form.is_valid():
-            print("FORM VALID AF")
+            logging.info("Form is valid. Processing file upload.")
             vessel_id = form.cleaned_data["vessel"]
             file = form.cleaned_data["file"]
 
             try:
                 handle_uploaded_file(file, vessel_id)
             except Exception as e:
-                print(f"Error processing file: {e}")
+                logging.error(f"Error processing file: {e}")
                 return render(request, "upload.html", {"form": form})
 
             return render(request, "upload_success.html")
         else:
-            print("FORM AINT VALID")
-            print(form.errors)
+            logging.error("Form is invalid.")
             return render(request, "upload.html", {"form": form})
     else:
         form = UploadFileForm()
@@ -63,4 +67,9 @@ def documents(request):
     """
 
     documents = Document.objects.all()
-    return render(request, "documents.html", documents)
+
+    context = {
+        "documents": documents,
+    }
+
+    return render(request, "documents.html", context)
