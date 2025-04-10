@@ -2,7 +2,7 @@ import logging
 
 import magic
 from django import forms
-from django.core.validators import FileExtensionValidator, MaxValueValidator
+from django.core.validators import FileExtensionValidator
 
 from ocr.main.utils.loggers import basic_logging
 from ocr.models import Vessel
@@ -81,7 +81,7 @@ class UploadFileForm(forms.Form):
 
         if mime_type not in allowed_mime_types:
             logging.error(
-                f"Invalid MIME type: {mime_type}. Allowed: {allowed_mime_types}"
+                f"Invalid MIME type: {mime_type}. Allowed: {allowed_mime_types}"  # noqa 501
             )
             raise forms.ValidationError(
                 "Invalid file type. Only PDF and ZIP files are allowed."

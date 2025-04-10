@@ -4,5 +4,8 @@
 {% block title %}BAB OCR Documents{% endblock %}
 
 {% block content %}
-
+<div class="table">
+    {% for document in context["documents"] %}
+    {{ document }}
+</div>
 {% endblock %}

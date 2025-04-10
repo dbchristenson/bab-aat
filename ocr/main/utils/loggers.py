@@ -21,6 +21,8 @@ def basic_logging(logger_name: str):
         ],
     )
 
+    logging.propogate = True
+
 
 def setup_logging(logger_name: str = "detect_objs"):
     """Robust logging setup that survives PaddleOCR's configuration"""
