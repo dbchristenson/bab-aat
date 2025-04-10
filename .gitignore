@@ -188,3 +188,6 @@ main.db
 
 # imgs
 *.png
+
+# pdfs
+*.pdf
