@@ -235,7 +235,7 @@ def convert_pdf(
     parent_doc: Document,
     output_dir: str,
     scale: int = 4,
-):
+) -> None:
     """
     Convert a single PDF to images while tracking state in the database.
 

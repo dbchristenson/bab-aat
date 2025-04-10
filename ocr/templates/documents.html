@@ -1,11 +1,42 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}BAB OCR Documents{% endblock %}
-
+{% block title %} BAB OCR Documents {% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/documents.css' %}">
+{% endblock %}
 {% block content %}
-<div class="table">
-    {% for document in context["documents"] %}
-    {{ document }}
+<div class="container my-4">
+    {# FILTER FORM #}
+
+    {# DOCUMENTS TABLE #}
+    <table class="table table-striped table-hover">
+        {# TABLE HEADER #}
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Name</th>
+                <th scope="col">Vessel</th>
+                <th scope="col">Document No.</th>
+                <th scope="col">File Size</th>
+                <th scope="col">Last Modified</th>
+                <th scope="col">Created At</th>
+            </tr>
+        </thead>
+        {# TABLE BODY #}
+        <tbody>
+            {% for d in documents %}
+            <tr class="clickable" onclick="window.location='{{ d.document_number }}'" tabindex="0">
+                <th scope="row">{{ d.id }}</th>
+                <td scope="row">{{ d.name }}</td>
+                <td scope="row">{{ d.vessel.name }}</td>
+                <td scope="row">{{ d.document_number }}</td>
+                <td scope="row">{{ d.file_size }}</td>
+                <td scope="row">{{ d.last_modified }}</td>
+                <td scope="row">{{ d.created_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
 {% endblock %}

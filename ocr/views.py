@@ -6,7 +6,7 @@ from django.shortcuts import render
 from ocr.forms import UploadFileForm
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Detection, Document, Page
+from ocr.models import Detection, Document, Page, Vessel
 
 basic_logging(__name__)
 
@@ -60,16 +60,36 @@ def upload_success(request):
 
 def documents(request):
     """
-    Render the documents page. This page displays all the documents
-    that have been uploaded. Documents are uploaded to the db before
-    their detections are fully processed and therefore can be viewed
-    before the processing is complete.
-    """
+    Render the documents page with filtering options.
+    Displays all uploaded documents, and allows filtering
+    by vessel and document number.
 
+    Query Parameters:
+        vessel: (optional) Vessel id to filter on.
+        document_number: (optional) Substring to filter the document number.
+
+    Context:
+        documents: QuerySet of filtered Document objects.
+        vessels: List of all Vessel objects (for dropdown population).
+    """
+    selected_vessels = request.GET.getlist("vessels")
     documents = Document.objects.all()
+    if selected_vessels:
+        documents = documents.filter(vessel__id__in=selected_vessels)
+    doc_number = request.GET.get("document_number", "").strip()
+    if doc_number:
+        documents = documents.filter(document_number__icontains=doc_number)
+    documents = documents.order_by("name")  # or another order as needed
+
+    # sort documents by id then vessel
+    documents = sorted(
+        documents, key=lambda x: (x.id, x.vessel.name if x.vessel else "")
+    )
 
     context = {
         "documents": documents,
+        "vessels": Vessel.objects.all(),
+        "selected_vessels": selected_vessels,
     }
 
     return render(request, "documents.html", context)
