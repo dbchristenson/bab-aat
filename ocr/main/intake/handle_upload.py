@@ -25,7 +25,6 @@ def handle_pdf(file: File, vessel_obj: Vessel | None, output: str) -> None:
         vessel_obj (Vessel): The Vessel object associated with the document.
         output (str): The output directory where the PDF and images are saved.
     """
-
     try:
         document_id = save_document(file, vessel_obj)
     except IntegrityError as e:
@@ -81,21 +80,29 @@ def unzip_file(zip_path: str) -> str:
         logging.error(f"Error extracting zip file at {zip_path}: {e}")
         raise
 
+    # Delete the zip file after extraction
+    try:
+        os.remove(zip_path)
+        logging.info(f"Deleted zip file at {zip_path}")
+    except Exception as e:
+        logging.error(f"Error deleting zip file at {zip_path}: {e}")
+
     return dest_dir
 
 
-def get_pdf_file_objects(directory_path: str) -> list[File]:
+def process_directory(
+    directory_path: str, vessel_obj: Vessel, output: str
+) -> None:
     """
-    Walks through the given directory (and subdirectories) and returns a list
-    of Django File objects for every PDF file found.
+    Walks through the given directory (and subdirectories) and processes
+    each PDF file found. It opens each PDF file in binary mode and wraps it
+    in Django's File object. The file is then passed to the handle_pdf
+    function for further processing.
 
     Args:
         zip_path (str): The path to the zip file containing the pdfs.
-
-    Returns:
-        List[File]: A list of Django File objects wrapping each PDF file.
+        vessel_obj (Vessel): The Vessel object associated with the document.
     """
-    pdf_files = []
     # Recursively walk the directory
     for root, dirs, files in os.walk(directory_path):
         for filename in files:
@@ -106,8 +113,10 @@ def get_pdf_file_objects(directory_path: str) -> list[File]:
                 # Wrap it in Django's File object
                 # (remember, the caller must later close it)
                 django_file = File(f, name=filename)
-                pdf_files.append(django_file)
-    return pdf_files
+                handle_pdf(django_file, vessel_obj, output)
+
+                f.close()  # Close the file after processing
+                django_file.close()  # Close the Django File object
 
 
 def get_detections(document_ids: list[int]) -> list[dict]:
@@ -126,17 +135,9 @@ def handle_zip(file: File, vessel_obj: Vessel | None, output: str) -> None:
     """
     # Unzip the file to the media directory
     extracted_directory = unzip_file(file.temporary_file_path())
-    pdf_files = get_pdf_file_objects(extracted_directory)
 
-    for pdf_file in pdf_files:
-        # Save the PDF file to the server
-        try:
-            handle_pdf(pdf_file, vessel_obj, output)
-        except IntegrityError as e:
-            logging.error(f"Error saving document '{pdf_file.name}': {e}")
-            raise
-
-        pdf_file.close()  # Close the file after processing
+    # Process each PDF file in the extracted directory
+    process_directory(extracted_directory, vessel_obj, output)
 
     return
 
