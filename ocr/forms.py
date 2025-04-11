@@ -54,10 +54,10 @@ class UploadFileForm(forms.Form):
             )
 
         # File size
-        max_size = 50 * 1024 * 1024
+        max_size = 2.5 * 1024 * 1024 * 1024  # 2.5 GB in bytes
         if file.size > max_size:
-            logging.error("File size exceeds 50 MB limit.")
-            raise forms.ValidationError("File size exceeds 50 MB limit.")
+            logging.error("File size exceeds 2.5 GB limit.")
+            raise forms.ValidationError("File size exceeds 2.5 GB limit.")
 
         # File type validation
         allowed_exts = ["pdf", "zip"]

@@ -44,7 +44,7 @@ def handle_pdf(file: File, vessel_obj: Vessel | None, output: str) -> None:
     upload_directory = os.path.join(MEDIA_ROOT, "pages")
     os.makedirs(upload_directory, exist_ok=True)
 
-    convert_pdf(file, document, upload_directory)
+    convert_pdf(file, document, upload_directory, scale=2)
 
     return document_id
 
