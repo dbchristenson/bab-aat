@@ -99,8 +99,9 @@ class Truth(models.Model):
         created_at (datetime): The date when the truth was created.
     """
 
+    document_number = models.CharField(max_length=255)
     document = models.ForeignKey(
-        Document, related_name="truths", on_delete=models.CASCADE
+        Document, related_name="truths", on_delete=models.CASCADE, null=True
     )
     text = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
