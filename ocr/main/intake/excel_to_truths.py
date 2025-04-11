@@ -46,10 +46,6 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
     # Remove rows with missing values
     new_df = new_df.dropna()
 
-    new_df["document"] = new_df["document_number"].apply(
-        lambda x: Document.objects.get(document_number=x)
-    )
-
     return new_df
 
 
@@ -64,7 +60,7 @@ def load_kraken(kraken_df: pd.DataFrame) -> None:
     for _, row in kraken_df.iterrows():
         # Create a new Truth object
         truth = Truth(
-            document=row["document"],
+            document_number=row["document_number"],
             text=row["tag_number"],
             created_at=dt.datetime.now(),
         )
