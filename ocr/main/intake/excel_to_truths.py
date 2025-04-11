@@ -60,6 +60,9 @@ def load_kraken(kraken_df: pd.DataFrame) -> None:
     for _, row in kraken_df.iterrows():
         # Create a new Truth object
         truth = Truth(
+            document=Document.objects.filter(
+                document_number=row["document_number"]
+            ).first(),
             document_number=row["document_number"],
             text=row["tag_number"],
             created_at=dt.datetime.now(),
