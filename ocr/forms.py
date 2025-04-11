@@ -88,3 +88,29 @@ class UploadFileForm(forms.Form):
             )
 
         return file
+
+
+class DeleteDocumentFromVesselForm(forms.Form):
+    """
+    Form for deleting a document from a vessel.
+    This form allows users to select a document from a list of documents
+    associated with a specific vessel and delete it. The form is rendered
+    as a dropdown list of vessels. When submitted, it will delete all
+    documents associated with the selected vessel.
+    """
+
+    vessels = Vessel.objects.all()
+    vessel_choices = [(vessel.id, vessel.name) for vessel in vessels]
+    vessel_choices.sort(key=lambda x: x[1])
+    vessel_choices.insert(0, ("", "Select a vessel"))
+
+    vessel = forms.ChoiceField(
+        choices=vessel_choices,
+        widget=forms.Select(
+            attrs={
+                "class": "form-select",
+                "aria-label": "Select a vessel",
+            }
+        ),
+        help_text="Select the vessel associated with these documents",
+    )
