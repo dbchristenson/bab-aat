@@ -4,93 +4,100 @@ import logging
 import os
 
 import pypdfium2 as pdfium
-from models import Document, Page
-from peewee import IntegrityError
-from utils.configs import with_config
-from utils.page_to_img import create_img_and_pad_divisible_by_32
+from django.core.files import File
 
-# Not relevant for usage on cloud/production
-BASE_DIR = "/Users/dbchristenson/Desktop/python/bab-aat/bab-aat"
-DATA_DIR = os.path.join(BASE_DIR, "data")
-OUTPUT_DIR = os.path.join(DATA_DIR, "output")
+# new imports
+from django.db import IntegrityError
+from django.db.models import Q
+
+from babaatsite.settings import BASE_DIR
+from ocr.main.utils.configs import with_config
+from ocr.main.utils.loggers import basic_logging
+from ocr.main.utils.page_to_img import create_img_and_pad_divisible_by_32
+from ocr.models import Document, Page, Vessel
 
 # Setup logging
-logging.basicConfig(
-    level=logging.INFO,  # Set the logging level
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("main/logs/pdf_img_pipeline.log"),  # Log to a file
-        logging.StreamHandler(),  # Log to the console
-    ],
-)
+basic_logging("pdf_img_pipeline")
 
 
 def resolve_dir_path(dir_path: str, absolute_path: bool) -> str:
     if absolute_path:
         return dir_path
     else:
-        return os.path.join(DATA_DIR, dir_path)
+        return os.path.join(BASE_DIR, dir_path)
 
 
-def save_document(file_name: str, file_path: str) -> None:
+def save_document(file: File, vessel: Vessel) -> int | None:
     """
-    Saves or updates a document record in the database.
-
-    Checks if document exists and compares metadata (size, modification time).
-    If document is new or changed, creates/updates the database record.
-    Logs all operations and errors.
+    Saves or updates a Document record in the database using an uploaded file
+    and an associated Vessel. Checks for an existing document with the same
+    vessel, file name, or derived document number. Compares metadata (file
+    size and last modified timestamp). If an existing document is found and
+    its metadata differs, the document is deleted and a new one is created.
+    Otherwise, the document is not re-saved.
 
     Args:
-        file_name: Name of the document file (including extension).
-        file_path: Full absolute path to the document file.
+        file (File): The uploaded file object.
+        vessel (Vessel): The Vessel instance associated with the document.
+
+    Returns:
+        A list of integers representing the IDs of the saved or updated
+        Document records.
+
+        None if the document already exists with identical metadata.
 
     Raises:
-        IntegrityError: If database constraints are violated during save.
-        OSError: If file metadata cannot be read (implicit from os calls).
+        IntegrityError: If database constraints are violated during saving.
+        OSError: If file metadata cannot be read.
 
     Notes:
-        - Performs atomic update by deleting and recreating changed documents
-        - Compares both file size and last modified timestamp for changes
-        - Logs at INFO level for normal operations, ERROR for failures
-        - Uses Document model which must have fields: name, file_path,
-          file_size, and last_modified
+        - The document_number is derived from the file name.
+        - As the uploaded file might not have an inherent last-modified time,
+          the current timestamp is used.
+        - This function relies on Django’s FileField storage to handle moving
+          the file from a temporary to a permanent location.
     """
-    try:
-        # get file metadata
-        file_size = os.path.getsize(file_path)
-        last_modified = dt.datetime.fromtimestamp(os.path.getmtime(file_path))
-        document_number = file_name.split(".")[0]
+    file_name = file.name
+    file_size = file.size
+    last_modified = dt.datetime.now()  # Using current time as last_modified
+    document_number = file_name.split(".")[0]
 
-        existing_doc = Document.get_or_none(
-            (Document.name == file_name) |
-            (Document.file_path == file_path) |
-            (Document.document_number == document_number)
-        )
+    # Check if a document with the same vessel and file name or document number exists. # noqa 501
+    existing_doc_qs = Document.objects.filter(vessel=vessel).filter(
+        Q(name=file_name) | Q(document_number=document_number)
+    )
 
-        if existing_doc:
-            # Has the document changed?
-            size_change = existing_doc.file_size != file_size
-            modified_change = existing_doc.last_modified != last_modified
-            if size_change or modified_change:
-                existing_doc.delete_instance()
-                logging.info(f"Document {file_name} has changed, deleting.")
-            else:
-                logging.info(f"Document {file_name} already exists, skipping.")
-                return
+    if existing_doc_qs.exists():
+        existing_doc = existing_doc_qs.first()
+        # Compare file metadata; note that last_modified here is newly
+        # generated, so if you need a more accurate check, you might
+        # need to store the original mod time.
+        size_change = existing_doc.file_size != file_size
+        modified_change = existing_doc.last_modified != last_modified
+        if size_change or modified_change:
+            existing_doc.delete()
+            logging.info(
+                f"Document '{file_name}' has changed (size or modification time); deleting existing record."  # noqa 501
+            )
+        else:
+            logging.info(
+                f"Document '{file_name}' already exists with identical metadata; skipping save."  # noqa 501
+            )
+            return
 
-        # Create a new document
-        new_document = Document(
-            name=file_name,
-            document_number=document_number,
-            file_path=file_path,
-            file_size=file_size,
-            last_modified=last_modified,
-        )
-        new_document.save()
-        logging.info(f"Document {file_name} added to the database.")
+    # Django's FileField will handle saving the file permanently.
+    new_document = Document(
+        name=file_name,
+        vessel=vessel,
+        document_number=document_number,
+        file=file,
+        file_size=file_size,
+        last_modified=last_modified,
+    )
+    new_document.save()
+    logging.info(f"Document '{file_name}' added to the database.")
 
-    except IntegrityError as e:
-        logging.error(f"Error saving document {file_name}: {e}")
+    return new_document.id
 
 
 def get_pdf_paths(
@@ -177,12 +184,12 @@ def check_already_converted(pdf_path: str) -> bool:
               False otherwise
     """
     file_name = os.path.basename(pdf_path)
-    doc = Document.get_or_none(Document.name == file_name)
+    doc = Document.objects.filter(Document.name == file_name)
 
     if not doc:
         return False
 
-    page_count = Page.select().where(Page.document == doc).count()
+    page_count = Page.objects.filter(Page.document == doc).count()
 
     try:
         pdf = pdfium.PdfDocument(pdf_path)
@@ -196,55 +203,75 @@ def check_already_converted(pdf_path: str) -> bool:
         return False
 
 
-def save_img_to_db(parent_doc: Document, page_num: int, img_path: str):
+def save_img_to_db(parent_doc: Document, page_num: int, img_path: str) -> None:
     """
-    Save the image to the output directory and add the page to the database.
+    Saves the image file to the database by creating a Page record using the
+    image field from the Page model. The image file is opened, wrapped in a
+    Django File object, and passed to the ImageField.
 
     Args:
-        parent_doc: Document object for the parent PDF
-        page_num: Page number of the image
-        img_path: Path to the image file
+        parent_doc (Document): The Document object associated with the PDF.
+        page_num (int): The page number (0-indexed) of the PDF being processed.
+        img_path (str): The filesystem path to the image file to save.
 
     Raises:
-        IntegrityError: If database constraints are violated during
+        IntegrityError: If database constraints are violated during creation.
     """
     try:
-        Page.create(
-            document=parent_doc, page_number=page_num, img_path=img_path
-        )
+        with open(img_path, "rb") as f:
+            django_file = File(f, name=os.path.basename(img_path))
+            Page.objects.create(
+                document=parent_doc, page_number=page_num, image=django_file
+            )
         logging.info(f"Page {page_num} of {parent_doc.name} saved.")
     except IntegrityError as e:
-        logging.error(f"Error with page {page_num} of {parent_doc.name}: {e}")
+        logging.error(
+            f"Error saving page {page_num} of {parent_doc.name}: {e}"
+        )  # noqa 501
+    except FileNotFoundError as e:
+        logging.error(
+            f"File not found for page {page_num} of {parent_doc.name}: {e}"
+        )
+        # Remove from database if file not found
+        parent_doc.delete()
+        logging.info(
+            f"Deleted Document {parent_doc.name} due to missing image file."
+        )
 
 
 def convert_pdf(
-    path: str,
+    input_data,  # Accepts str | pathlib.Path | bytes | BinaryIO etc.
     parent_doc: Document,
-    base_name: str,
-    file_name: str,
     output_dir: str,
     scale: int = 4,
-):
+) -> None:
     """
-    Convert a single PDF to images while tracking state in database.
+    Convert a single PDF to images while tracking state in the database.
 
     Args:
-        pdf: Pdfium PDF object to convert
-        parent_doc: Document object for the parent PDF
-        base_name: Base name of the PDF file
-        file_name: Full name of the PDF file with the extension
-        output_dir: Directory to save converted images
-        scale: Scaling factor for image conversion (default: 4)
+        input_data (str | pathlib.Path | bytes | typing.BinaryIO):
+            The PDF input as a file path, bytes, or any file-like object.
+        parent_doc (Document): Document object for the parent PDF.
+        output_dir (str): Directory to save converted images.
+        scale (int): Scaling factor for image conversion (default: 4).
     """
-    pdf = pdfium.PdfDocument(path)
+    # Derive file_name and base_name from the Document instance
+    file_name = parent_doc.name
+    base_name = os.path.splitext(file_name)[0]
+
+    # If input_data is a file-like object, ensure the pointer is at the beginning.  # noqa 501
+    try:
+        input_data.seek(0)
+    except Exception:
+        pass
+
+    pdf = pdfium.PdfDocument(input_data)
 
     for i in range(len(pdf)):
         page = pdf[i]
         img = create_img_and_pad_divisible_by_32(page, scale=scale)
         new_name = f"{base_name}_{i}.png"
         new_path = os.path.join(output_dir, new_name)
-
-        # Save img to output and data to db
         img.save(new_path)
         logging.info(f"Page {i} of {file_name} saved as image.")
         save_img_to_db(parent_doc, i, new_path)
@@ -274,7 +301,7 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
         base_name = os.path.splitext(file_name)[0]
 
         try:
-            parent_doc = Document.get(Document.name == file_name)
+            parent_doc = Document.objects.get(Document.name == file_name)
             convert_pdf(
                 path, parent_doc, base_name, file_name, output_dir, scale=scale
             )
