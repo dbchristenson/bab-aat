@@ -90,7 +90,7 @@ class UploadFileForm(forms.Form):
         return file
 
 
-class DeleteDocumentFromVesselForm(forms.Form):
+class DeleteDocumentsFromVesselForm(forms.Form):
     """
     Form for deleting a document from a vessel.
     This form allows users to select a document from a list of documents
