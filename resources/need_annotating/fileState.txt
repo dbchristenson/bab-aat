@@ -1,0 +1,4 @@
+need_annotating/21020-BAE-50000-PR-DW-7211_0.jpg	1
+need_annotating/21020-BAE-50000-PR-DW-7213_0.jpg	1
+need_annotating/21020-BAE-50000-PR-DW-7224_0.jpg	1
+need_annotating/21020-BAE-52000-MA-DW-0001_0.jpg	1

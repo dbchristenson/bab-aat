@@ -5,6 +5,7 @@ from django.shortcuts import redirect, render
 
 from ocr.forms import DeleteDocumentsFromVesselForm, UploadFileForm
 from ocr.main.intake.handle_upload import handle_uploaded_file
+from ocr.main.utils.draw_detections import draw_detections
 from ocr.main.utils.loggers import basic_logging
 from ocr.models import Detection, Document, Page, Vessel
 
@@ -93,6 +94,33 @@ def documents(request):
     }
 
     return render(request, "documents.html", context)
+
+
+def document_detail(request, document_id):
+    """
+    Render the document detail page.
+    Displays information about a specific document, including its pages and
+    associated detections if they have been created.
+    """
+
+    document = Document.objects.get(id=document_id)
+    pages = Page.objects.filter(document=document).order_by("page_number")
+
+    rendered_detections = {}
+
+    for p in pages:
+        detections = Detection.objects.filter(page=p).order_by("created_at")
+        det_tuple = (p.page_number, detections)
+        rendered_detections[p] = rendered_detections.get(p, []).extend(
+            det_tuple
+        )
+
+    context = {
+        "document": document,
+        "pages": pages,
+    }
+
+    return render(request, "document_detail.html", context)
 
 
 def delete_documents_from_vessel(request):
