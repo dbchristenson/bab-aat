@@ -36,8 +36,11 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
     """
     df = pd.read_excel(spreadsheet_path)
 
-    # Note the space in "Tag Number ", this is intentional
-    target_columns = ["Document Number", "Tag Number "]
+    # Removes the space in Tag Number in a more robust way so if they ever
+    # decide to not have that space there, the truths functionality won't
+    # break lol.
+    df.columns = [col.strip for col in df.columns]
+    target_columns = ["Document Number", "Tag Number"]
     new_columns = ["document_number", "tag_number"]
 
     new_df = df[target_columns].copy(deep=True)
@@ -45,6 +48,11 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
 
     # Remove rows with missing values
     new_df = new_df.dropna()
+
+    # Remove rows with UNTAGGED in the tag_number string
+    new_df = new_df[
+        new_df["tag_number"].str.contains("UNTAGGED") == False  # noqa E712
+    ]
 
     return new_df
 
@@ -60,6 +68,9 @@ def load_kraken(kraken_df: pd.DataFrame) -> None:
     for _, row in kraken_df.iterrows():
         # Create a new Truth object
         truth = Truth(
+            document=Document.objects.filter(
+                document_number=row["document_number"]
+            ).first(),
             document_number=row["document_number"],
             text=row["tag_number"],
             created_at=dt.datetime.now(),

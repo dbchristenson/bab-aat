@@ -188,9 +188,13 @@ main.db
 
 # imgs
 *.png
+*.jpg
 
 # pdfs
 *.pdf
 
 # excel
 *.xlsx
+
+# annotation
+resources/need_annotation/*

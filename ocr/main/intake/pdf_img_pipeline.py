@@ -57,10 +57,14 @@ def save_document(file: File, vessel: Vessel) -> int | None:
         - This function relies on Django’s FileField storage to handle moving
           the file from a temporary to a permanent location.
     """
-    file_name = file.name
+    file_name = file.name.strip()
     file_size = file.size
     last_modified = dt.datetime.now()  # Using current time as last_modified
-    document_number = file_name.split(".")[0]
+    document_number = file_name.split(".")[0].strip()
+
+    # Kraken formatting
+    if Vessel.objects.filter(id=vessel.id).first().name == "KRAKEN":
+        document_number = document_number.split("_")[0]
 
     # Check if a document with the same vessel and file name or document number exists. # noqa 501
     existing_doc_qs = Document.objects.filter(vessel=vessel).filter(
