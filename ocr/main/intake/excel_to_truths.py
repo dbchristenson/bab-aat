@@ -36,11 +36,8 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
     """
     df = pd.read_excel(spreadsheet_path)
 
-    # Removes the space in Tag Number in a more robust way so if they ever
-    # decide to not have that space there, the truths functionality won't
-    # break lol.
-    df.columns = [col.strip for col in df.columns]
-    target_columns = ["Document Number", "Tag Number"]
+    # Note the space in the column name "Tag Number "
+    target_columns = ["Document Number", "Tag Number "]
     new_columns = ["document_number", "tag_number"]
 
     new_df = df[target_columns].copy(deep=True)
