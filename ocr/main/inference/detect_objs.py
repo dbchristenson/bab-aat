@@ -4,18 +4,12 @@ import logging
 import os
 from typing import Optional
 
-from models import Detection, Page
 from paddleocr import PaddleOCR
-from peewee import JOIN
 from utils.configs import load_config, with_config
-from utils.db_routing import connect_to_db
-from utils.extract_ocr_results import (
-    crop_image,
-    get_bbox,
-    get_confidence,
-    get_ocr,
-)
+from utils.extract_ocr_results import get_bbox, get_confidence, get_ocr
 from utils.loggers import setup_logging
+
+from ocr.models import Detection, Page
 
 
 @with_config

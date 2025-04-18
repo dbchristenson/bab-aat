@@ -1,4 +1,5 @@
 import os
+import random
 
 import django
 
@@ -37,6 +38,16 @@ def get_pages_for_documents() -> list:
     for doc in relevant_documents:
         pages = Page.objects.filter(document=doc).order_by("page_number")
         relevant_pages.extend(pages)
+
+    # Sample 100 pages with seed 42 on sorted list
+    relevant_pages = sorted(
+        relevant_pages, key=lambda x: x.document.document_number
+    )
+    random.seed(42)
+    relevant_pages = random.sample(
+        relevant_pages,
+        100,
+    )
 
     return relevant_pages
 

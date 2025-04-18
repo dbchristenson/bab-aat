@@ -74,6 +74,7 @@ class Detection(models.Model):
         page (Page): The page on which the detection was made.
         text (str): The recognized text.
         confidence (float): The confidence score of the detection.
+        experiment (str): The name of the experiment or model used.
         created_at (datetime): The date when the detection was created.
     """
 
@@ -82,6 +83,7 @@ class Detection(models.Model):
     )
     text = models.CharField(max_length=255)
     confidence = models.FloatField()
+    experiment = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
