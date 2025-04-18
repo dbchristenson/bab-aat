@@ -195,3 +195,6 @@ main.db
 
 # excel
 *.xlsx
+
+# annotation
+resources/need_annotation/*
