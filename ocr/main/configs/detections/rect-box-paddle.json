@@ -11,6 +11,7 @@
         "det_box_type": "rect"
     },
     "detections": {
-        "experiment_name": ""
+        "experiment_name": "rect-box",
+        "image_dir": "C:\\Users\\User\\src\\bab-aat\\resources\\eval_pages"
     }
 }

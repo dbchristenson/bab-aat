@@ -11,6 +11,7 @@
         "det_box_type": "quad"
     },
     "detections": {
-        "experiment_name": ""
+        "experiment_name": "slow-scoring",
+        "image_dir": "C:\\Users\\User\\src\\bab-aat\\resources\\eval_pages"
     }
 }
