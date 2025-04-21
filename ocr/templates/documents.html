@@ -1,42 +1,85 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %} BAB OCR Documents {% endblock %}
+{% block title %}BAB OCR Documents{% endblock %}
 {% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'css/documents.css' %}">
+<link rel="stylesheet" href="{% static 'css/documents.css' %}">
 {% endblock %}
+
 {% block content %}
 <div class="container my-4">
-    {# FILTER FORM #}
 
-    {# DOCUMENTS TABLE #}
+    <!-- FILTER CONTROLS -->
+    <div class="row g-3 mb-4 align-items-end">
+        <!-- 1st col: document-number search -->
+        <div class="col-md-5">
+            <label for="docNumberInput" class="form-label">Search Document No.</label>
+            <input type="search" id="docNumberInput" class="form-control" placeholder="Type any part of the number…">
+        </div>
+
+        <!-- 2nd col: vessel dropdown -->
+        <div class="col-md-5">
+            <label class="form-label">Filter by Vessel</label>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="vesselDropdownButton"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="vesselDropdownLabel">All Vessels</span>
+                </button>
+                <div class="dropdown-menu" aria-labelledby="vesselDropdownButton"
+                    style="max-height: 200px; overflow-y: auto; padding: .5rem;">
+                    {% for vessel in vessels %}
+                    <div class="form-check">
+                        <input class="form-check-input vessel-checkbox" type="checkbox" value="{{ vessel.id }}"
+                            id="vesselCheck{{ vessel.id }}">
+                        <label class="form-check-label" for="vesselCheck{{ vessel.id }}">
+                            {{ vessel.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 3rd col: clear button -->
+        <div class="col-md-2 text-end">
+            <button id="clearFilters" class="btn btn-outline-secondary">
+                Clear
+            </button>
+        </div>
+    </div>
+
+    <!-- DOCUMENTS TABLE -->
     <table class="table table-striped table-hover">
-        {# TABLE HEADER #}
         <thead>
             <tr>
-                <th scope="col">#</th>
-                <th scope="col">Name</th>
-                <th scope="col">Vessel</th>
-                <th scope="col">Document No.</th>
-                <th scope="col">File Size</th>
-                <th scope="col">Last Modified</th>
-                <th scope="col">Created At</th>
+                <th>#</th>
+                <th>File</th>
+                <th>Vessel</th>
+                <th>Document No.</th>
+                <th>File Size</th>
+                <th>Last Modified</th>
+                <th>Created At</th>
             </tr>
         </thead>
-        {# TABLE BODY #}
         <tbody>
             {% for d in documents %}
-            <tr class="clickable" onclick="window.location='{{ d.id }}'" tabindex="0">
+            <tr class="clickable" data-vessel-id="{{ d.vessel.id }}"
+                data-document-number="{{ d.document_number|lower }}" onclick="window.location='{{ d.id }}'"
+                tabindex="0">
                 <th scope="row">{{ d.id }}</th>
-                <td scope="row">{{ d.name }}</td>
-                <td scope="row">{{ d.vessel.name }}</td>
-                <td scope="row">{{ d.document_number }}</td>
-                <td scope="row">{{ d.file_size }}</td>
-                <td scope="row">{{ d.last_modified }}</td>
-                <td scope="row">{{ d.created_at }}</td>
+                <td>{{ d.name }}</td>
+                <td>{{ d.vessel.name }}</td>
+                <td>{{ d.document_number }}</td>
+                <td>{{ d.file_size }}</td>
+                <td>{{ d.last_modified }}</td>
+                <td>{{ d.created_at }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/documents.js' %}"></script>
 {% endblock %}
