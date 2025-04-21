@@ -1,5 +1,4 @@
 import os
-import random
 
 import django
 
@@ -9,17 +8,21 @@ django.setup()
 from ocr.models import Document, Page, Truth  # noqa E402
 
 
-def get_kraken_without_truth():
+def get_kraken_with_truth():
     """
     This function queries the documents table and returns all Kraken documents
-    which do not have a truth associated with them. This is useful for
-    identifying documents which need to be annotated.
+    which have a truth associated with them.
     """
 
-    relevant_documents = Document.objects.filter(vessel_id=1).exclude(
+    relevant_documents = Document.objects.filter(
+        vessel_id=1,
         document_number__in=Truth.objects.values_list(
             "document_number", flat=True
-        )
+        ),
+    )
+
+    print(
+        f"Found {relevant_documents.count()} documents with truth associated."
     )
 
     return relevant_documents
@@ -32,27 +35,17 @@ def get_pages_for_documents() -> list:
     identifying pages which need to be annotated.
     """
 
-    relevant_documents = get_kraken_without_truth()
+    relevant_documents = get_kraken_with_truth()
     relevant_pages = []
 
     for doc in relevant_documents:
         pages = Page.objects.filter(document=doc).order_by("page_number")
         relevant_pages.extend(pages)
 
-    # Sample 100 pages with seed 42 on sorted list
-    relevant_pages = sorted(
-        relevant_pages, key=lambda x: x.document.document_number
-    )
-    random.seed(42)
-    relevant_pages = random.sample(
-        relevant_pages,
-        100,
-    )
-
     return relevant_pages
 
 
-def make_anno_dir(pages: list, output_dir: str) -> None:
+def make_eval_dir(pages: list, output_dir: str) -> None:
     """
     This function creates a directory and populates it with the images
     of the pages which need to be annotated. The directory is named
@@ -76,5 +69,5 @@ def make_anno_dir(pages: list, output_dir: str) -> None:
 
 
 pages = get_pages_for_documents()
-output_dir = os.path.join("resources", "need_annotating")
-make_anno_dir(pages, output_dir)
+output_dir = os.path.join("resources", "eval_pages")
+make_eval_dir(pages, output_dir)
