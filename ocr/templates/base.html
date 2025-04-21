@@ -7,26 +7,45 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Bumi Armada OCR API{% endblock %}</title>
 
-    <!-- Bootstrap 5 CSS (minimal) -->
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Custom External CSS -->
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
-
     {% block css %}{% endblock %}
 </head>
 
 <body>
-    <!-- Minimal Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <!-- Hamburger‑style Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
         <div class="container">
-            <a class="navbar-brand" href="/">
-                <i class="fas me-2"></i>Bumi Armada OCR API
-            </a>
-            <div class="navbar-nav">
-                <a class="nav-link" href="{% url 'admin:index' %}">
-                    <i class="fas fa-user-shield me-1"></i>Admin
-                </a>
+            <!-- Brand -->
+            <a class="navbar-brand" href="/">Bumi Armada OCR API</a>
+
+            <!-- Toggler / Hamburger -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- Collapsible nav links -->
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% block nav_links %}
+                    <!--
+              Default links go here. To add your own links,
+              either override this block in a child template
+              or edit them directly here:
+            -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ocr/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ocr/documents">Documents</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+                    </li>
+                    {% endblock %}
+                </ul>
             </div>
         </div>
     </nav>
@@ -35,31 +54,25 @@
     <main class="container">
         {% if messages %}
         {% for message in messages %}
-        <div
-            class="alert alert-{% if message.tags == 'error' %}accent{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show">
+        <div class="alert alert-{% if message.tags == 'error' %}accent{% else %}{{ message.tags }}{% endif %}
+             alert-dismissible fade show">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
         {% endif %}
-
-        {% block content %}
-        {% endblock %}
+        {% block content %}{% endblock %}
     </main>
 
-    <!-- Minimal Footer -->
+    <!-- Footer -->
     <footer class="mt-5 py-3 text-center text-muted small">
-        <div class="container">
-            &copy; {% now "Y" %} Bumi Armada
-        </div>
+        <div class="container">&copy; {% now "Y" %} Bumi Armada</div>
     </footer>
 
-    <!-- Required JS -->
+    <!-- Bootstrap JS + FontAwesome -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-
-    {% block scripts %}
-    {% endblock %}
+    {% block scripts %}{% endblock %}
 </body>
 
 </html>
