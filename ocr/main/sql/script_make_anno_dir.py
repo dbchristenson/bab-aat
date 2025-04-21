@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 
@@ -6,7 +7,7 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "babaatsite.settings")
 django.setup()
 
-from ocr.models import Document, Page, Truth  # noqa E402
+from ocr.models import Document, Page, Truth, Vessel  # noqa E402
 
 
 def get_kraken_without_truth():
@@ -25,14 +26,29 @@ def get_kraken_without_truth():
     return relevant_documents
 
 
-def get_pages_for_documents() -> list:
+def get_vessel_documents_without_truth(vessel: Vessel):
+    """
+    This function queries the documents table and returns all documents
+    associated with the given vessel which do not have a truth associated
+    with them. This is useful for identifying documents which need to be
+    annotated.
+    """
+    relevant_documents = Document.objects.filter(vessel=vessel).exclude(
+        document_number__in=Truth.objects.values_list(
+            "document_number", flat=True
+        )
+    )
+    return relevant_documents
+
+
+def get_pages_for_documents(vessel: Vessel) -> list:
     """
     This function queries the pages table and returns all pages associated with
     the documents returned from get_kraken_without_truth(). This is useful for
     identifying pages which need to be annotated.
     """
 
-    relevant_documents = get_kraken_without_truth()
+    relevant_documents = get_vessel_documents_without_truth(vessel)
     relevant_pages = []
 
     for doc in relevant_documents:
@@ -75,6 +91,19 @@ def make_anno_dir(pages: list, output_dir: str) -> None:
     print(f"Annotated images saved to {output_dir}")
 
 
-pages = get_pages_for_documents()
-output_dir = os.path.join("resources", "need_annotating")
-make_anno_dir(pages, output_dir)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Create a directory for annotating pages."
+    )
+    parser.add_argument(
+        "--vessel",
+        type=str,
+        required=True,
+        help="The name of the vessel to filter documents.",
+    )
+    args = parser.parse_args()
+
+    vessel = Vessel.objects.get(name=args.vessel)
+    pages = get_pages_for_documents(vessel)
+    output_dir = os.path.join("resources", "need_annotating", vessel.name)
+    make_anno_dir(pages, output_dir)
