@@ -74,7 +74,11 @@ def get_page_detections(
             experiment=experiment,
         )
 
+        det.save()  # Save the detection to the database
+
         detections.append(det)
+
+    logging.info(f"[{experiment}] Saved detection for page {page.id}")
 
     return detections
 

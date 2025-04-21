@@ -73,6 +73,7 @@ class Detection(models.Model):
     Params:
         page (Page): The page on which the detection was made.
         text (str): The recognized text.
+        bbox (list): The bounding box coordinates of the detected text.
         confidence (float): The confidence score of the detection.
         experiment (str): The name of the experiment or model used.
         created_at (datetime): The date when the detection was created.
@@ -82,6 +83,7 @@ class Detection(models.Model):
         Page, related_name="detections", on_delete=models.CASCADE
     )
     text = models.CharField(max_length=255)
+    bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
     confidence = models.FloatField()
     experiment = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)

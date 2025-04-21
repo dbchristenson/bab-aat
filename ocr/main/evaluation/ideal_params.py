@@ -19,7 +19,7 @@ from ocr.main.inference.detections import (  # noqa: E501, E402
 
 # from ocr.main.utils.configs import load_config  # noqa: E402
 from ocr.main.utils.loggers import setup_logging  # noqa: E402
-from ocr.models import Document, Truth  # noqa: E402
+from ocr.models import Detection, Document, Truth  # noqa: E402
 
 
 def run_experiment(config_path: str, device_id: int = None):
@@ -30,36 +30,55 @@ def run_experiment(config_path: str, device_id: int = None):
     Returns (cfg_name, avg_recall, per_doc_recalls_dict)
     """
     cfg_name = os.path.basename(config_path)
-    logging.info(f"[{cfg_name}] ▶️ Starting experiment")
+    logging.info(f"[{cfg_name}] Starting experiment")
 
     # Bind to a specific GPU if requested
     if device_id is not None:
         os.environ["CUDA_VISIBLE_DEVICES"] = str(device_id)
 
-    cfg_name = os.path.basename(config_path)
     # config = load_config(config_path)
     ocr = config_ocr(config=config_path)
 
-    logging.info(f"[{cfg_name}] ⚙️ OCR configured, now running detections")
+    logging.info(f"[{cfg_name}] OCR configured, now running detections")
+
+    saved_cfg_name = "-".join(cfg_name.split("-")[:2]) + ".json"
+    logging.info(
+        f"[{cfg_name}] looking for cached experiment name: '{saved_cfg_name}'"
+    )
 
     # 1) find all document_numbers that have at least one Truth
-    doc_nums = Truth.objects.values_list(
-        "document_number", flat=True
-    ).distinct()
-
-    logging.info(f"[{cfg_name}] Found {len(doc_nums)} documents")
-
-    # 2) fetch only those Documents
+    doc_nums = list(
+        Truth.objects.values_list("document_number", flat=True).distinct()
+    )
     docs = Document.objects.filter(document_number__in=doc_nums)
+    logging.info(f"[{cfg_name}] Found {len(doc_nums)} documents")
 
     per_doc_recalls = []
     per_doc_scores = {}
 
     logging.info(f"[{cfg_name}] Running OCR on {len(docs)} documents")
     for doc in docs:
+        logging.debug(
+            f"[{cfg_name}] Document {doc.document_number}: cache_exists? “{Detection.objects.filter(experiment=saved_cfg_name).exists()}”"  # noqa: E501
+        )
         # a) run OCR on all pages of this doc
-        dets = analyze_document(doc, ocr, experiment=cfg_name)
-        detected_texts = {d.text for d in dets}
+        if Detection.objects.filter(experiment=saved_cfg_name).exists():
+            # gather results from DB instead
+            logging.debug(
+                f"[{cfg_name}] Using cached results for {doc.document_number}"
+            )
+            dets = Detection.objects.filter(
+                page__document__document_number=doc.document_number,
+                experiment=saved_cfg_name,
+            )
+            detected_texts = {d.text.upper().strip() for d in dets}
+        else:
+            logging.info(f"[{cfg_name}] Running OCR on {doc.document_number}")
+            print("we broke, running ocr but not supposed to")
+            continue  # for bugs rn
+            # run OCR and save results to DB
+            dets = analyze_document(doc, ocr, experiment=cfg_name)
+            detected_texts = {d.text.upper().strip() for d in dets}
 
         # b) get all truths for this doc
         truths = list(
@@ -72,7 +91,7 @@ def run_experiment(config_path: str, device_id: int = None):
             continue
 
         # c) compute recall for this doc
-        found = sum(1 for t in truths if t in detected_texts)
+        found = sum(1 for t in truths if t.upper().strip() in detected_texts)
         recall = found / len(truths)
         per_doc_recalls.append(recall)
         per_doc_scores[doc.document_number] = recall
@@ -83,7 +102,7 @@ def run_experiment(config_path: str, device_id: int = None):
     )
 
     logging.info(
-        f"[{cfg_name}] ✅ Finished detections, avg recall={avg_recall:.3f}"
+        f"[{cfg_name}] Finished detections, avg recall={avg_recall:.3f}"
     )
 
     return cfg_name, avg_recall, per_doc_scores
@@ -103,12 +122,25 @@ def main():
         default=1,
         help="Number of GPUs / parallel workers",
     )
+    parser.add_argument(
+        "--maxexperiments",
+        type=int,
+        default=10,
+        help="Maximum number of experiments to run",
+    )
     args = parser.parse_args()
 
     setup_logging("ideal_params")
     logging.info("Starting ideal_params.py…")
 
-    configs = glob(os.path.join(args.config_dir, "*.json"))
+    # Only select configs whose name appears in the list below
+    all_configs = glob(os.path.join(args.config_dir, "*.json"))
+    configs = [
+        cfg
+        for cfg in all_configs
+        if "params.json" in os.path.basename(cfg).split("-")
+    ]
+
     device_ids = list(range(args.gpus))
 
     # collect results: { config_name: (avg_recall, {doc_num:recall, …}) }
@@ -119,7 +151,7 @@ def main():
             executor.submit(
                 run_experiment, cfg, device_ids[i % len(device_ids)]
             ): cfg
-            for i, cfg in enumerate(configs)
+            for i, cfg in enumerate(configs[: args.maxexperiments])
         }
 
         for fut in as_completed(futures):
