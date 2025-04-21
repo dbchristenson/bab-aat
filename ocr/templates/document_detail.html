@@ -5,34 +5,40 @@
 {% block css %}
 <link rel="stylesheet" type="text/css" href="{% static 'css/document_detail.css' %}">
 {% endblock %}
+{% block scripts %}
+<script src="{% static 'js/document_detail.js' %}"></script>
+{% endblock %}
 
 {% block content %}
 <div class="container my-4">
-    <!-- Header + Config Selection -->
     <div class="row g-3 mb-4 align-items-end">
-        <h2>Detections {{ document.document_number }}</h2>
-        <div class="col col-md-5">
-            <label class="form-label">Config</label>
-            <div class="dropdown">
+        <h2 class="col-auto">Detections {{ document.document_number }}</h2>
+
+        <div class="col-md-5">
+            <label class="form-label">&nbsp;</label>
+            <div class="dropdown mx-5 my-1">
                 <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="configDropdownButton"
                     data-bs-toggle="dropdown" aria-expanded="false">
-                    <span id="configDropdownLabel">{{ config }}</span>
+                    <span id="configDropdownLabel">
+                        {{ config|default:"Select Config" }}
+                    </span>
                 </button>
+
                 <div class="dropdown-menu" aria-labelledby="configDropdownButton"
-                    style="max-height: 200px; overflow-y: auto; padding: .5rem;">
-                    {% for vessel in vessels %}
-                    <div class="form-check">
-                        <input class="form-check-input config-checkbox" type="checkbox" value="{{ vessel.id }}"
-                            id="vesselCheck{{ vessel.id }}">
-                        <label class="form-check-label" for="vesselCheck{{ vessel.id }}">
-                            {{ vessel.name }}
+                    style="max-height:200px; overflow-y:auto; padding:.5rem;">
+                    {% for cfg in configs %}
+                    <div class="form-check px-3">
+                        <input class="form-check-input config-select" type="radio" name="config"
+                            id="configRadio{{ forloop.counter }}" value="{{ cfg }}" {% if cfg == selected_config %}checked{% endif %}>
+                        <label class="form-check-label" for="configRadio{{ forloop.counter }}">
+                            {{ cfg }}
                         </label>
                     </div>
                     {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
+                </div><!-- /.dropdown-menu -->
+            </div><!-- /.dropdown -->
+        </div><!-- /.col -->
+    </div><!-- /.row -->
 
     <!-- Detections -->
     <div class="container my-4">

@@ -102,18 +102,19 @@ def document_detail(request, document_id):
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
+    # Get the config from the request, default to "production.json"
+    # This config is used to filter detections based on the configuration
+    # used during the detection process.
     config = request.GET.get("config", None)
     if config is None:
-        config = "production"
-    config += ".json"
-    logging.info(f"Using config: {config}")
+        config = "production.json"
 
     document = Document.objects.get(id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
     page_detections = []
     for p in pages:
-        dets = Detection.objects.filter(page=p, experiment=config)
+        dets = Detection.objects.filter(page=p, config=config)
         page_detections.append((p, dets))
 
     associated_truths = Truth.objects.filter(
@@ -124,10 +125,20 @@ def document_detail(request, document_id):
     else:
         truths = None
 
+    # Get all configs for the current document
+    # This is used to populate the dropdown for
+    # selecting different configurations.
+    configs = set()
+    for p in pages:
+        dets = Detection.objects.filter(page=p)
+        for d in dets:
+            configs.add(d.config)
+
     context = {
         "document": document,
         "page_detections": page_detections,
         "config": config,
+        "configs": configs,
         "truths": truths,
         "vessel": document.vessel.name if document.vessel else None,
     }
