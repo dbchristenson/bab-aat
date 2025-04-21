@@ -85,7 +85,7 @@ class Detection(models.Model):
     text = models.CharField(max_length=255)
     bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
     confidence = models.FloatField()
-    experiment = models.CharField(max_length=255, null=True)
+    config = models.CharField(max_length=255, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -59,23 +59,23 @@ def run_experiment(config_path: str, device_id: int = None):
     logging.info(f"[{cfg_name}] Running OCR on {len(docs)} documents")
     for doc in docs:
         logging.debug(
-            f"[{cfg_name}] Document {doc.document_number}: cache_exists? “{Detection.objects.filter(experiment=saved_cfg_name).exists()}”"  # noqa: E501
+            f"[{cfg_name}] Document {doc.document_number}: cache_exists? “{Detection.objects.filter(config=saved_cfg_name).exists()}”"  # noqa: E501
         )
         # a) run OCR on all pages of this doc
-        if Detection.objects.filter(experiment=saved_cfg_name).exists():
+        if Detection.objects.filter(config=saved_cfg_name).exists():
             # gather results from DB instead
             logging.debug(
                 f"[{cfg_name}] Using cached results for {doc.document_number}"
             )
             dets = Detection.objects.filter(
                 page__document__document_number=doc.document_number,
-                experiment=saved_cfg_name,
+                config=saved_cfg_name,
             )
             detected_texts = {d.text.upper().strip() for d in dets}
         else:
             logging.info(f"[{cfg_name}] Running OCR on {doc.document_number}")
             # run OCR and save results to DB
-            dets = analyze_document(doc, ocr, experiment=saved_cfg_name)
+            dets = analyze_document(doc, ocr, param_config=saved_cfg_name)
             detected_texts = {d.text.upper().strip() for d in dets}
 
         # b) get all truths for this doc

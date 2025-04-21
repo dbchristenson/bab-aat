@@ -102,18 +102,18 @@ def document_detail(request, document_id):
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
-    experiment = request.GET.get("experiment", None)
-    if experiment:
-        experiment += ".json"
-    if experiment is None:
-        experiment = "production.json"
+    config = request.GET.get("config", None)
+    if config is None:
+        config = "production"
+    config += ".json"
+    logging.info(f"Using config: {config}")
 
     document = Document.objects.get(id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
     page_detections = []
     for p in pages:
-        dets = Detection.objects.filter(page=p, experiment=experiment)
+        dets = Detection.objects.filter(page=p, experiment=config)
         page_detections.append((p, dets))
 
     associated_truths = Truth.objects.filter(
@@ -127,7 +127,7 @@ def document_detail(request, document_id):
     context = {
         "document": document,
         "page_detections": page_detections,
-        "experiment": experiment,
+        "config": config,
         "truths": truths,
         "vessel": document.vessel.name if document.vessel else None,
     }

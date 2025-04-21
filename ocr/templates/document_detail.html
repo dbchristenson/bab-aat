@@ -7,30 +7,56 @@
 {% endblock %}
 
 {% block content %}
-<h2>Detections {{ document.document_number }}</h2>
-<div class="container">
-
-    {% for page, dets in page_detections %}
-    <div class="row mb-4 align-items-start">
-        <!-- Fixed‑width column for detections -->
-        <div class="col-lg-2">
-            <h5>Page {{ page.page_number }}</h5>
-            <ul class="list-unstyled mb-0">
-                {% for det in dets %}
-                <li>{{ det.text }} <small>(conf={{ det.confidence|floatformat:2 }})</small></li>
-                {% empty %}
-                <li><em>No detections</em></li>
-                {% endfor %}
-            </ul>
-        </div>
-
-        <!-- Auto‑sized column for the truth text -->
-        <div class="col-auto">
-            <h5>Truth</h5>
-            <p class="mb-0">{{ truths|index:forloop.counter0|default:"—" }}</p>
+<div class="container my-4">
+    <!-- Header + Config Selection -->
+    <div class="row g-3 mb-4 align-items-end">
+        <h2>Detections {{ document.document_number }}</h2>
+        <div class="col col-md-5">
+            <label class="form-label">Config</label>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="configDropdownButton"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <span id="configDropdownLabel">{{ config }}</span>
+                </button>
+                <div class="dropdown-menu" aria-labelledby="configDropdownButton"
+                    style="max-height: 200px; overflow-y: auto; padding: .5rem;">
+                    {% for vessel in vessels %}
+                    <div class="form-check">
+                        <input class="form-check-input config-checkbox" type="checkbox" value="{{ vessel.id }}"
+                            id="vesselCheck{{ vessel.id }}">
+                        <label class="form-check-label" for="vesselCheck{{ vessel.id }}">
+                            {{ vessel.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
     </div>
-    {% endfor %}
 
-</div>
-{% endblock %}
+    <!-- Detections -->
+    <div class="container my-4">
+        {% for page, dets in page_detections %}
+        <div class="row mb-4 align-items-start">
+            <!-- Fixed‑width column for detections -->
+            <div class="col-lg-2">
+                <h5>Page {{ page.page_number }}</h5>
+                <ul class="list-unstyled mb-0">
+                    {% for det in dets %}
+                    <li>{{ det.text }} <small>(conf={{ det.confidence|floatformat:2 }})</small></li>
+                    {% empty %}
+                    <li><em>No detections</em></li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <!-- Auto‑sized column for the truth text -->
+            <div class="col-auto">
+                <h5>Truth</h5>
+                <p class="mb-0">{{ truths|index:forloop.counter0|default:"—" }}</p>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+    {% endblock %}

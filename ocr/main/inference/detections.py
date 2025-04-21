@@ -35,7 +35,7 @@ def config_ocr(config=None):
 
 
 def get_page_detections(
-    page: Page, ocr: PaddleOCR, experiment: str
+    page: Page, ocr: PaddleOCR, param_config: str
 ) -> list[Detection]:
     """
     Get detections for a given page using the OCR network.
@@ -52,7 +52,7 @@ def get_page_detections(
     lines = ocr_results[0]
 
     logging.info(
-        f"[{experiment}] Detected {len(lines)} lines on page {page.id}"
+        f"[{param_config}] Detected {len(lines)} lines on page {page.id}"
     )
 
     # Extract bounding boxes, confidence scores, and text from OCR results
@@ -63,7 +63,7 @@ def get_page_detections(
         text = get_ocr(line)
 
         logging.debug(
-            f"[{experiment}] Detected text: {text}, bbox: {bbox}, confidence: {confidence}"  # noqa: E501
+            f"[{param_config}] Detected text: {text}, bbox: {bbox}, confidence: {confidence}"  # noqa: E501
         )
 
         det = Detection(
@@ -71,20 +71,20 @@ def get_page_detections(
             bbox=bbox,
             confidence=confidence,
             text=text,
-            experiment=experiment,
+            param_config=param_config,
         )
 
         det.save()  # Save the detection to the database
 
         detections.append(det)
 
-    logging.info(f"[{experiment}] Saved detection for page {page.id}")
+    logging.info(f"[{param_config}] Saved detection for page {page.id}")
 
     return detections
 
 
 def analyze_document(
-    document: Document, ocr: PaddleOCR, experiment: str
+    document: Document, ocr: PaddleOCR, param_config: str
 ) -> list[Detection]:
     """
     Analyze a document by processing each page and extracting detections.
@@ -94,7 +94,7 @@ def analyze_document(
     Args:
         document (Document): The document object containing metadata and pages.
         ocr (PaddleOCR): The configured OCR network.
-        experiment (str): The name of the experiment or model used.
+        param_config (str): The name of the param_config or model used.
 
     Returns:
         list[Detection]: List of detection objects for the document.
@@ -105,7 +105,7 @@ def analyze_document(
     all_detections = []
 
     for page in pages:
-        detections = get_page_detections(page, ocr, experiment)
+        detections = get_page_detections(page, ocr, param_config)
         all_detections.extend(detections)
 
     return all_detections
