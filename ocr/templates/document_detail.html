@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static list_extras %}
+
+{% block title %} BAB OCR Document Detail {% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'css/document_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<h2>Detections {{ document.document_number }}</h2>
+<div class="container">
+
+    {% for page, dets in page_detections %}
+    <div class="row mb-4 align-items-start">
+        <!-- Fixed‑width column for detections -->
+        <div class="col-lg-2">
+            <h5>Page {{ page.page_number }}</h5>
+            <ul class="list-unstyled mb-0">
+                {% for det in dets %}
+                <li>{{ det.text }} <small>(conf={{ det.confidence|floatformat:2 }})</small></li>
+                {% empty %}
+                <li><em>No detections</em></li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Auto‑sized column for the truth text -->
+        <div class="col-auto">
+            <h5>Truth</h5>
+            <p class="mb-0">{{ truths|index:forloop.counter0|default:"—" }}</p>
+        </div>
+    </div>
+    {% endfor %}
+
+</div>
+{% endblock %}

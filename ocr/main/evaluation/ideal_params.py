@@ -41,7 +41,7 @@ def run_experiment(config_path: str, device_id: int = None):
 
     logging.info(f"[{cfg_name}] OCR configured, now running detections")
 
-    saved_cfg_name = "-".join(cfg_name.split("-")[:2]) + ".json"
+    saved_cfg_name = "-".join(cfg_name.split("-")[:-1]) + ".json"
     logging.info(
         f"[{cfg_name}] looking for cached experiment name: '{saved_cfg_name}'"
     )
@@ -74,10 +74,8 @@ def run_experiment(config_path: str, device_id: int = None):
             detected_texts = {d.text.upper().strip() for d in dets}
         else:
             logging.info(f"[{cfg_name}] Running OCR on {doc.document_number}")
-            print("we broke, running ocr but not supposed to")
-            continue  # for bugs rn
             # run OCR and save results to DB
-            dets = analyze_document(doc, ocr, experiment=cfg_name)
+            dets = analyze_document(doc, ocr, experiment=saved_cfg_name)
             detected_texts = {d.text.upper().strip() for d in dets}
 
         # b) get all truths for this doc

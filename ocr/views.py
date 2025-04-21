@@ -7,7 +7,7 @@ from ocr.forms import DeleteDocumentsFromVesselForm, UploadFileForm
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.draw_detections import draw_detections
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Detection, Document, Page, Vessel
+from ocr.models import Detection, Document, Page, Truth, Vessel
 
 basic_logging(__name__)
 
@@ -102,24 +102,35 @@ def document_detail(request, document_id):
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
+    experiment = request.GET.get("experiment", None)
+    if experiment:
+        experiment += ".json"
+    if experiment is None:
+        experiment = "production.json"
 
     document = Document.objects.get(id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
-    rendered_detections = {}
-
+    page_detections = []
     for p in pages:
-        detections = Detection.objects.filter(page=p).order_by("created_at")
-        det_tuple = (p.page_number, detections)
-        rendered_detections[p] = rendered_detections.get(p, []).extend(
-            det_tuple
-        )
+        dets = Detection.objects.filter(page=p, experiment=experiment)
+        page_detections.append((p, dets))
+
+    associated_truths = Truth.objects.filter(
+        document_number=document.document_number
+    )
+    if associated_truths.exists():
+        truths = associated_truths.values_list("text", flat=True)
+    else:
+        truths = None
 
     context = {
         "document": document,
-        "pages": pages,
+        "page_detections": page_detections,
+        "experiment": experiment,
+        "truths": truths,
+        "vessel": document.vessel.name if document.vessel else None,
     }
-
     return render(request, "document_detail.html", context)
 
 
