@@ -92,6 +92,51 @@ class Detection(models.Model):
         return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
 
 
+class Tag(models.Model):
+    """
+    A tag can be made up of one or more detections. Tags are complete text
+    blocks that signify greater importance than a single detection might. For
+    example, two detections arranged above and below each other might be a
+    single tag. Tags are algorithmically determined and may still contain
+    errors.
+
+    Params:
+        document (Document): The document to which this tag belongs.
+        text (str): The text of the tag.
+        bbox (list): The bounding box coordinates of the merged shape.
+        algorithm (str): The algorithm used to create the tag.
+        detections (list): The raw OCR lines used to build this tag.
+        confidence (float): Minimum confidence of the detections used.
+        created_at (datetime): The date when the tag was created.
+    """
+
+    document = models.ForeignKey(
+        Document, related_name="tags", on_delete=models.CASCADE, null=True
+    )
+    text = models.CharField(max_length=255)
+    bbox = models.JSONField(
+        help_text="Polygon coords [[x1,y1],…] of the merged shape"
+    )
+    algorithm = models.CharField(
+        max_length=100,
+        null=True,
+        help_text="e.g. 'circle_hough', 'dbscan', 'proximity_merge'",
+    )
+    detections = models.ManyToManyField(
+        Detection,
+        related_name="tags",
+        help_text="Raw OCR lines used to build this tag",
+    )
+    confidence = models.FloatField(
+        null=True,
+        help_text="Minimum confidence of the detections used in this tag",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.document.name} - {self.text}"
+
+
 class Truth(models.Model):
     """
     A truth is a manually annotated text block on a page. We will use

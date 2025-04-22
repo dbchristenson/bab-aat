@@ -200,3 +200,6 @@ resources/*
 
 # annotation
 resources/need_annotation/*
+
+# experiments
+ocr/experiments/*
