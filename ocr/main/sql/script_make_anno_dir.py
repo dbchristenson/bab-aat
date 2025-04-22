@@ -103,7 +103,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    vessel = Vessel.objects.get(name=args.vessel)
+    try:
+        vessel = Vessel.objects.get(name=args.vessel)
+    except Vessel.DoesNotExist:
+        print(f"Vessel '{args.vessel}' does not exist.")
+        exit(1)
     pages = get_pages_for_documents(vessel)
     output_dir = os.path.join("resources", "need_annotating", vessel.name)
     make_anno_dir(pages, output_dir)

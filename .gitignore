@@ -189,6 +189,8 @@ main.db
 # imgs
 *.png
 *.jpg
+need_annotation
+resources/*
 
 # pdfs
 *.pdf
