@@ -1,5 +1,6 @@
 import logging
 
+from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 
