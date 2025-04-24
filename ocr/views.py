@@ -197,8 +197,8 @@ def delete_documents_from_vessel(request):
     if request.method == "POST":
         form = DeleteDocumentsFromVesselForm(request.POST)
         if form.is_valid():
-            vessel_id = form.cleaned_data["vessel"]
-            vessel = Vessel.objects.get(id=vessel_id)
+            vessel_name = form.cleaned_data["vessel"]
+            vessel = Vessel.objects.get(name=vessel_name)
             documents = Document.objects.filter(vessel=vessel)
 
             # Delete all documents associated with the selected vessel

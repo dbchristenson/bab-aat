@@ -142,7 +142,7 @@ def handle_zip(file: File, vessel_obj: Vessel | None, output: str) -> None:
     return
 
 
-def handle_uploaded_file(file: File, vessel_id: int) -> None:
+def handle_uploaded_file(file: File, vessel_name: str) -> None:
     """
     Handle the uploaded file. This function processes the uploaded file,
     which may be a pdf or a zip file. From a pdf, it creates a document
@@ -156,7 +156,7 @@ def handle_uploaded_file(file: File, vessel_id: int) -> None:
         file (File): The uploaded file.
         vessel_id (int): The ID of the vessel associated with the document.
     """
-    vessel_obj = Vessel.objects.filter(id=vessel_id).first()
+    vessel_obj = Vessel.objects.filter(name=vessel_name).first()
     file_ext = file.name.split(".")[-1].lower()  # Apparently this is not safe
     logging.warning(
         "Collecting file extension using potentially vulnerable method in handle_upload.py"  # noqa 501

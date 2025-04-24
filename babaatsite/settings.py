@@ -11,9 +11,16 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+import sys
+import types
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+if "test" in sys.argv:
+    # pretend pypdfium2 is a plain Python module
+    sys.modules["pypdfium2"] = types.ModuleType("pypdfium2")
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,6 +28,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # File storage
 MEDIA_ROOT = os.path.join(BASE_DIR, "resources", "media")
 MEDIA_URL = "/media/"
+
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": "media",
+            "access_key": os.getenv("accesskey"),
+            "secret_key": os.getenv("secretkey"),
+            "endpoint_url": os.getenv("endpoint"),
+            "region_name": os.getenv("region"),
+        },
+    },
+}
 
 
 # Quick-start development settings - unsuitable for production
@@ -50,6 +73,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "storages",  # s3 storage supabase
 ]
 
 MIDDLEWARE = [
@@ -87,8 +111,12 @@ WSGI_APPLICATION = "babaatsite.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("dbname"),
+        "USER": os.getenv("user"),
+        "PASSWORD": os.getenv("password"),
+        "HOST": os.getenv("host"),
+        "PORT": os.getenv("port"),
     }
 }
 
