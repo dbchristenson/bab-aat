@@ -6,32 +6,40 @@
 <link rel="stylesheet" href="{% static 'css/documents.css' %}">
 {% endblock %}
 
+{% block scripts %}
+<script src="{% static 'js/documents.js' %}"></script>
+<script src="{% static 'js/pagination.js' %}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container my-4">
 
     <!-- FILTER CONTROLS -->
-    <div class="row g-3 mb-4 align-items-end">
-        <!-- 1st col: document-number search -->
+    <form method="get" class="row g-3 mb-4 align-items-end">
+        <!-- Search box -->
         <div class="col-md-5">
-            <label for="docNumberInput" class="form-label">Search Document No.</label>
-            <input type="search" id="docNumberInput" class="form-control" placeholder="Type any part of the number…">
+            <label for="document_number" class="form-label">Search Document No.</label>
+            <input type="search" id="document_number" name="document_number" class="form-control"
+                placeholder="Type any part…" value="{{ request.GET.document_number }}">
         </div>
 
-        <!-- 2nd col: vessel dropdown -->
+        <!-- Vessel checkboxes -->
         <div class="col-md-5">
             <label class="form-label">Filter by Vessel</label>
             <div class="dropdown">
-                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="vesselDropdownButton"
-                    data-bs-toggle="dropdown" aria-expanded="false">
-                    <span id="vesselDropdownLabel">All Vessels</span>
+                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                    {% if selected_vessel_names %}
+                    {{ selected_vessel_names|join:", " }}
+                    {% else %}
+                    All Vessels
+                    {% endif %}
                 </button>
-                <div class="dropdown-menu" aria-labelledby="vesselDropdownButton"
-                    style="max-height: 200px; overflow-y: auto; padding: .5rem;">
+                <div class="dropdown-menu p-3" style="max-height:200px; overflow-y:auto;">
                     {% for vessel in vessels %}
                     <div class="form-check">
-                        <input class="form-check-input vessel-checkbox" type="checkbox" value="{{ vessel.id }}"
-                            id="vesselCheck{{ vessel.id }}">
-                        <label class="form-check-label" for="vesselCheck{{ vessel.id }}">
+                        <input class="form-check-input" type="checkbox" name="vessels" value="{{ vessel.id }}"
+                            id="vchk{{ vessel.id }}" {% if vessel.id|stringformat:"s" in selected_vessels %}checked{% endif %}>
+                        <label class="form-check-label" for="vchk{{ vessel.id }}">
                             {{ vessel.name }}
                         </label>
                     </div>
@@ -40,18 +48,23 @@
             </div>
         </div>
 
-        <!-- 3rd col: clear button -->
+        <!-- Preserve sorting params -->
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+
+        <!-- Submit & Clear -->
         <div class="col-md-2 text-end">
-            <button id="clearFilters" class="btn btn-outline-secondary">
-                Clear
-            </button>
+            <button type="submit" class="btn btn-primary me-2">Search</button>
+            <a href="/ocr/documents/" class="btn btn-outline-secondary">Clear</a>
         </div>
-    </div>
+    </form>
+
 
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div>
-            Showing <strong><span id="docCount">{{ documents|length }}</span></strong> of
-            <strong>{{ documents|length }}</strong> documents.
+            Showing
+            <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
+            of <strong>{{ page_obj.paginator.count }}</strong> documents.
         </div>
     </div>
 
@@ -59,25 +72,37 @@
     <table class="table table-striped table-hover">
         <thead>
             <tr>
-                <!-- Document ID Sort -->
-                <th class="sortable" data-key="documentId" style="cursor: pointer;">
-                    # <i class="fas fa-sort"></i>
+                {# Document ID #}
+                <th class="sortable" style="cursor: pointer;">
+                    <a
+                        href="?{{ base_query }}{% if base_query %}&{% endif %}sort=id&order={% if sort == 'id' and order == 'asc' %}desc{% else %}asc{% endif %}">
+                        #
+                        <i
+                            class="fas fa-sort{% if sort == 'id' %}{% if order == 'asc' %}-up{% else %}-down{% endif %}{% endif %}"></i>
+                    </a>
                 </th>
-                <!-- Document ID Sort-->
+
                 <th>File</th>
                 <th>Vessel</th>
                 <th>Document No.</th>
-                <!-- File Size Sort -->
-                <th class="sortable" data-key="fileSize" style="cursor: pointer;">
-                    File Size <i class="fas fa-sort"></i>
+
+                {# File Size #}
+                <th class="sortable" style="cursor: pointer;">
+                    <a
+                        href="?{{ base_query }}{% if base_query %}&{% endif %}sort=file_size&order={% if sort == 'file_size' and order == 'asc' %}desc{% else %}asc{% endif %}">
+                        File Size
+                        <i
+                            class="fas fa-sort{% if sort == 'file_size' %}{% if order == 'asc' %}-up{% else %}-down{% endif %}{% endif %}"></i>
+                    </a>
                 </th>
-                <!-- File Size Sort -->
+
                 <th>Last Modified</th>
                 <th>Created At</th>
             </tr>
         </thead>
+
         <tbody>
-            {% for d in documents %}
+            {% for d in page_obj.object_list %}
             <tr class="clickable" data-vessel-id="{{ d.vessel.id }}"
                 data-document-number="{{ d.document_number|lower }}" data-document-id="{{ d.id }}"
                 data-file-size="{{ d.file_size }}" onclick="window.location='{{ d.id }}'" tabindex="0">
@@ -92,9 +117,65 @@
             {% endfor %}
         </tbody>
     </table>
-</div>
-{% endblock %}
 
-{% block scripts %}
-<script src="{% static 'js/documents.js' %}"></script>
+    <!-- PAGINATION CONTROLS -->
+    <nav aria-label="Documents pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link"
+                    href="?{{ base_query }}{% if base_query %}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    Prev
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Prev</span>
+            </li>
+            {% endif %}
+
+            {% for p in page_numbers %}
+            {% if p == "…" %}
+            <li class="page-item disabled">
+                <span class="page-link">…</span>
+            </li>
+            {% elif p == page_obj.number %}
+            <li class="page-item active">
+                <span class="page-link">{{ p }}</span>
+            </li>
+            {% else %}
+            <li class="page-item">
+                <a class="page-link" href="?{{ base_query }}{% if base_query %}&{% endif %}page={{ p }}">
+                    {{ p }}
+                </a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link"
+                    href="?{{ base_query }}{% if base_query %}&{% endif %}page={{ page_obj.next_page_number }}">
+                    Next
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+            {% endif %}
+        </ul>
+
+        <!-- Jump-to-page form -->
+        <form id="jumpForm" class="d-flex justify-content-center align-items-center mt-3" onsubmit="return false;">
+            <label for="jumpTo" class="me-2 mb-0">Go to page:</label>
+            <input type="number" id="jumpTo" class="form-control" style="width: 100px; margin-right: .5rem;" min="1"
+                max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}">
+            <button type="submit" class="btn btn-primary btn-sm">Go</button>
+            <span class="ms-2">of {{ page_obj.paginator.num_pages }}</span>
+        </form>
+    </nav>
+
+
+</div>
 {% endblock %}

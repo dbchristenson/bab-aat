@@ -75,23 +75,64 @@ def documents(request):
         vessels: List of all Vessel objects (for dropdown population).
     """
     selected_vessels = request.GET.getlist("vessels")
+    vessels_qs = Vessel.objects.all()
+    selected_vessel_names = list(
+        vessels_qs.filter(id__in=selected_vessels).values_list(
+            "name", flat=True
+        )
+    )
     documents = Document.objects.all()
     if selected_vessels:
         documents = documents.filter(vessel__id__in=selected_vessels)
     doc_number = request.GET.get("document_number", "").strip()
     if doc_number:
         documents = documents.filter(document_number__icontains=doc_number)
-    documents = documents.order_by("name")  # or another order as needed
 
-    # sort documents by id then vessel
-    documents = sorted(
-        documents, key=lambda x: (x.id, x.vessel.name if x.vessel else "")
-    )
+    sort_key = request.GET.get("sort", "id")  # 'id' or 'file_size'
+    order = request.GET.get("order", "asc")  # 'asc' or 'desc'
+    field_map = {
+        "id": "id",
+        "file_size": "file_size",
+    }
+    django_field = field_map.get(sort_key, "id")
+    prefix = "" if order == "asc" else "-"
+    documents = documents.order_by(f"{prefix}{django_field}")
+
+    # --- pagination (50 per page) ---
+    paginator = Paginator(documents, 50)
+    page_num = request.GET.get("page", 1)
+    page_obj = paginator.get_page(page_num)
+
+    # Build a slim “1, …, current–1, current, current+1, …, last” list
+    total = paginator.num_pages
+    current = page_obj.number
+    pages = [1]
+
+    if current > 3:
+        pages.append("…")
+
+    for p in (current - 1, current, current + 1):
+        if 1 < p < total:
+            pages.append(p)
+
+    if current < total - 2:
+        pages.append("…")
+
+    if total > 1:
+        pages.append(total)
 
     context = {
         "documents": documents,
-        "vessels": Vessel.objects.all(),
+        "page_obj": page_obj,
+        "page_numbers": pages,
+        "vessels": vessels_qs,
         "selected_vessels": selected_vessels,
+        "selected_vessel_names": selected_vessel_names,
+        "sort": sort_key,
+        "order": order,
+        "base_query": "&".join(
+            f"{k}={v}" for k, v in request.GET.items() if k not in ["page"]
+        ),
     }
 
     return render(request, "documents.html", context)
