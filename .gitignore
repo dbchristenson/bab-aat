@@ -189,6 +189,8 @@ main.db
 # imgs
 *.png
 *.jpg
+need_annotation
+resources/*
 
 # pdfs
 *.pdf
@@ -198,3 +200,6 @@ main.db
 
 # annotation
 resources/need_annotation/*
+
+# experiments
+ocr/experiments/*

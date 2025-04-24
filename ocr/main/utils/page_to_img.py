@@ -52,3 +52,21 @@ def create_img_and_pad_divisible_by_32(
     page.close()
 
     return padded_img
+
+
+def crop_out_figure(img: pil.Image) -> pil.Image:
+    """
+    This function crops the image to get only the figure part of the image.
+    The figure is assumed to
+    """
+
+    return
+
+
+def crop_out_table(img: pil.Image) -> pil.Image:
+    """
+    This functions crops the image to get only the table part
+    of the image.
+    """
+
+    return

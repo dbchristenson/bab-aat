@@ -5,6 +5,18 @@ def get_bbox(result):
     return result[0]
 
 
+def get_bbox_area(bbox: list) -> int:
+    left_x = bbox[0][0]
+    top = bbox[0][1]
+    right_x = bbox[2][0]
+    bottom = bbox[2][1]
+
+    length = abs(right_x - left_x)
+    height = abs(top - bottom)
+
+    return length * height
+
+
 def get_ocr(result):
     return result[1][0]
 

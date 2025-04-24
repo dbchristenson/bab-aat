@@ -62,8 +62,7 @@ def save_document(file: File, vessel: Vessel) -> int | None:
     last_modified = dt.datetime.now()  # Using current time as last_modified
     document_number = file_name.split(".")[0].strip()
 
-    # Kraken formatting
-    if Vessel.objects.filter(id=vessel.id).first().name == "KRAKEN":
+    if "_" in document_number:
         document_number = document_number.split("_")[0]
 
     # Check if a document with the same vessel and file name or document number exists. # noqa 501
