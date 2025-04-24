@@ -103,8 +103,13 @@ class Tag(models.Model):
     single tag. Tags are algorithmically determined and may still contain
     errors.
 
+    We denormalize the db to add page_number because some documents have 100+
+    pages in them. In the event of storage failure where we lose page data,
+    we can still recover the page number from the tag and the document.
+
     Params:
         document (Document): The document to which this tag belongs.
+        page_number (int): The page number of the document (0-indexed).
         text (str): The text of the tag.
         bbox (list): The bounding box coordinates of the merged shape.
         algorithm (str): The algorithm used to create the tag.
@@ -116,6 +121,7 @@ class Tag(models.Model):
     document = models.ForeignKey(
         Document, related_name="tags", on_delete=models.CASCADE, null=True
     )
+    page_number = models.IntegerField()  # 0-indexed
     text = models.CharField(max_length=255)
     bbox = models.JSONField(
         help_text="Polygon coords [[x1,y1],…] of the merged shape"
