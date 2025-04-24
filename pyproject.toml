@@ -5,9 +5,9 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "dj-database-url>=2.3.0",
     "django>=5.2",
     "django-cleanup>=9.0.0",
+    "django-storages[boto3]>=1.14.6",
     "dotenv>=0.9.9",
     "ipykernel>=6.29.5",
     "opencv-python>=4.11.0.86",
