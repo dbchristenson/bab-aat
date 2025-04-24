@@ -16,19 +16,10 @@ class UploadFileForm(forms.Form):
     document or a ZIP file containing multiple PDF documents.
     """
 
-    vessels = Vessel.objects.all()
-    vessel_choices = [(vessel.id, vessel.name) for vessel in vessels]
-    vessel_choices.sort(key=lambda x: x[1])
-    vessel_choices.insert(0, ("", "Select a vessel"))
-
-    vessel = forms.ChoiceField(
-        choices=vessel_choices,
-        widget=forms.Select(
-            attrs={
-                "class": "form-select",
-                "aria-label": "Select a vessel",
-            }
-        ),
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
         help_text="Select the vessel associated with these documents",
     )
 
@@ -99,18 +90,9 @@ class DeleteDocumentsFromVesselForm(forms.Form):
     documents associated with the selected vessel.
     """
 
-    vessels = Vessel.objects.all()
-    vessel_choices = [(vessel.id, vessel.name) for vessel in vessels]
-    vessel_choices.sort(key=lambda x: x[1])
-    vessel_choices.insert(0, ("", "Select a vessel"))
-
-    vessel = forms.ChoiceField(
-        choices=vessel_choices,
-        widget=forms.Select(
-            attrs={
-                "class": "form-select",
-                "aria-label": "Select a vessel",
-            }
-        ),
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
         help_text="Select the vessel associated with these documents",
     )
