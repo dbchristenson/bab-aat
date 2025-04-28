@@ -29,3 +29,6 @@ tmp/
 
 # sheets
 *.xlsx
+
+# resources
+/resources/

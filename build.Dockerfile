@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libglib2.0-0 libgl1 libsm6 libxrender1 \
     poppler-utils \
+    libmagic1 \
+    libmagic-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -32,7 +34,8 @@ ENV PATH="/app/.venv/bin:$PATH"
 ENTRYPOINT []
 
 # 7) Now copy the rest of your source code
-COPY . .
+COPY .. .
+
 
 # 8) Runtime configuration for Cloud Run’s web service
 ENV PORT=8080

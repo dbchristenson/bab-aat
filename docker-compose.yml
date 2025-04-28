@@ -1,0 +1,11 @@
+version: "1.0"
+services:
+  web:
+    build:
+      context: .
+      dockerfile: build.Dockerfile
+    image: bab-aat:dev1
+    ports:
+      - "8080:8080"
+    env_file:
+      - ".env"
