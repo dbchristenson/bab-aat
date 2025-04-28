@@ -23,4 +23,5 @@ dependencies = [
     "seaborn>=0.13.2",
     "setuptools>=78.1.0",
     "supabase>=2.15.0",
+    "uvicorn>=0.34.2",
 ]
