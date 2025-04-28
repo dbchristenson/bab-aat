@@ -4,7 +4,7 @@ services:
     build:
       context: .
       dockerfile: build.Dockerfile
-    image: bab-aat:dev1
+    image: bab-aat:latest
     ports:
       - "8080:8080"
     env_file:
