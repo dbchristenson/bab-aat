@@ -12,29 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # 2) Configure UV
-ENV UV_COMPILE_BYTECODE=1
-# Copy from the cache instead of linking since it's a mounted volume
-ENV UV_LINK_MODE=copy
-
-# 3) Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
-
-# 4) Add rest of source code and install
-ADD . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --no-install-project --no-dev
 
 # 5) Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
-# 6) Reset the entrypoint, don't invoke `uv`
-ENTRYPOINT []
-
 # 7) Now copy the rest of your source code
-COPY .. .
+COPY . .
 
 
 # 8) Runtime configuration for Cloud Run’s web service
