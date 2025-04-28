@@ -10,6 +10,9 @@ def basic_logging(logger_name: str):
     Args:
         logger_name (str): Name of the logger, without the .log extension.
     """
+    # Create logs directory if needed
+    os.makedirs("ocr/main/logs", exist_ok=True)
+
     logging.basicConfig(
         level=logging.INFO,  # Set the logging level
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
