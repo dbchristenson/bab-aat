@@ -1,0 +1,34 @@
+# Python cache, venvs
+__pycache__/
+*.py[cod]
+.venv/
+env/
+venv/
+
+# Django migrations, SQLite DB
+*/migrations/
+*.sqlite3
+
+# Node modules, build artifacts
+node_modules/
+dist/
+
+# Local config, secrets
+.env
+*.local
+secrets.yml
+
+# Logs, cache
+*.log
+tmp/
+
+# documents, imgs
+*.png
+*.jpeg
+*.pdf
+
+# sheets
+*.xlsx
+
+# resources
+/resources/
