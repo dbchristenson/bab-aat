@@ -1,9 +1,12 @@
 import logging
 import os
+import uuid
 import zipfile
 
 from django.core.files import File
+from django.core.files.storage import default_storage
 from django.db import IntegrityError
+from tasks import process_pdf_task
 
 from babaatsite.settings import MEDIA_ROOT
 from ocr.main.intake.pdf_img_pipeline import convert_pdf, save_document
@@ -90,59 +93,36 @@ def unzip_file(zip_path: str) -> str:
     return dest_dir
 
 
-def process_directory(
-    directory_path: str, vessel_obj: Vessel, output: str
-) -> None:
-    """
-    Walks through the given directory (and subdirectories) and processes
-    each PDF file found. It opens each PDF file in binary mode and wraps it
-    in Django's File object. The file is then passed to the handle_pdf
-    function for further processing.
-
-    Args:
-        zip_path (str): The path to the zip file containing the pdfs.
-        vessel_obj (Vessel): The Vessel object associated with the document.
-    """
-    # Recursively walk the directory
-    for root, dirs, files in os.walk(directory_path):
-        for filename in files:
-            if filename.lower().endswith(".pdf"):
-                file_path = os.path.join(root, filename)
-                # Open the file in binary mode
-                f = open(file_path, "rb")
-                # Wrap it in Django's File object
-                # (remember, the caller must later close it)
-                django_file = File(f, name=filename)
-                handle_pdf(django_file, vessel_obj, output)
-
-                f.close()  # Close the file after processing
-                django_file.close()  # Close the Django File object
-
-
 def get_detections(document_ids: list[int]) -> list[dict]:
     return
 
 
-def handle_zip(file: File, vessel_obj: Vessel | None, output: str) -> None:
+def _save_in_chunks(
+    django_file: File, dest_path: str, chunk_size: int = 64 * 1024
+):
     """
-    Unzips the uploaded ZIP file to the media directory and processes each PDF
-    file.
-
-    Args:
-        file (File): The uploaded ZIP file.
-        vessel_obj (Vessel): The Vessel object associated with the document.
-        output (str): The output directory where the PDF and images are saved.
+    Write an uploaded file to disk in chunks to avoid large memory usage.
     """
-    # Unzip the file to the media directory
-    extracted_directory = unzip_file(file.temporary_file_path())
+    with default_storage.open(dest_path, "wb") as out:
+        for chunk in django_file.chunks(chunk_size=chunk_size):
+            out.write(chunk)
 
-    # Process each PDF file in the extracted directory
-    process_directory(extracted_directory, vessel_obj, output)
-
-    return
+    return dest_path
 
 
-def handle_uploaded_file(file: File, vessel_name: str) -> None:
+def _collect_pdfs(directory_path):
+    """
+    Return a flat list of all pdf file paths under directory_path (disk paths).
+    """
+    pdfs = []
+    for root, _, files in os.walk(directory_path):
+        for fn in files:
+            if fn.lower().endswith(".pdf"):
+                pdfs.append(os.path.join(root, fn))
+    return pdfs
+
+
+def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
     """
     Handle the uploaded file. This function processes the uploaded file,
     which may be a pdf or a zip file. From a pdf, it creates a document
@@ -157,19 +137,40 @@ def handle_uploaded_file(file: File, vessel_name: str) -> None:
         vessel_id (int): The ID of the vessel associated with the document.
     """
     vessel_obj = Vessel.objects.filter(name=vessel_name).first()
-    file_ext = file.name.split(".")[-1].lower()  # Apparently this is not safe
-    logging.warning(
-        "Collecting file extension using potentially vulnerable method in handle_upload.py"  # noqa 501
-    )
 
     upload_directory = os.path.join(MEDIA_ROOT, "documents")
     os.makedirs(upload_directory, exist_ok=True)
 
-    # Save file, pages to the server
-    if file_ext == "pdf":
-        handle_pdf(file, vessel_obj, upload_directory)
+    # Persist the raw upload to disk
+    unique_filename = f"{uuid.uuid4().hex}_{django_file.name}"
+    disk_path = os.path.join(upload_directory, unique_filename)
+    _save_in_chunks(django_file, disk_path)
+
+    # Gather PDF files
+    ext = django_file.name.rsplit(".", 1)[-1].lower()
+    if ext == "pdf":
+        pdf_paths = [disk_path]
     else:
-        handle_zip(file, vessel_obj, upload_directory)
+        # unzip then collect PDFs
+        extract_dir = os.path.splitext(disk_path)[0]
+        os.makedirs(extract_dir, exist_ok=True)
+        with zipfile.ZipFile(disk_path, "r") as zf:
+            zf.extractall(extract_dir)
+        os.remove(disk_path)
+        pdf_paths = _collect_pdfs(extract_dir)
+
+    # Chunk list to avoid broker overload
+    chunk_size = 20
+    task_ids = []
+    for i in range(0, len(pdf_paths), chunk_size):
+        chunk = pdf_paths[i : i + chunk_size]  # noqa 203
+        for pdf_path in chunk:
+            tid = process_pdf_task.delay(
+                pdf_path, vessel_obj, upload_directory
+            )  # noqa E501
+            task_ids.append(tid)
+
+    return task_ids
 
     # OCR Inference on the pages
     # TODO
