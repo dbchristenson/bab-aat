@@ -6,12 +6,12 @@ import zipfile
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import IntegrityError
-from tasks import process_pdf_task
 
 from babaatsite.settings import MEDIA_ROOT
 from ocr.main.intake.pdf_img_pipeline import convert_pdf, save_document
 from ocr.main.utils.loggers import basic_logging
 from ocr.models import Document, Vessel
+from ocr.tasks import process_pdf_task
 
 basic_logging(__name__)
 
