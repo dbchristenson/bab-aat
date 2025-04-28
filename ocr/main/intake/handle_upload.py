@@ -5,51 +5,13 @@ import zipfile
 
 from django.core.files import File
 from django.core.files.storage import default_storage
-from django.db import IntegrityError
 
 from babaatsite.settings import MEDIA_ROOT
-from ocr.main.intake.pdf_img_pipeline import convert_pdf, save_document
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Document, Vessel
+from ocr.models import Vessel
 from ocr.tasks import process_pdf_task
 
 basic_logging(__name__)
-
-
-def handle_pdf(file: File, vessel_obj: Vessel | None, output: str) -> None:
-    """
-    Handle the uploaded PDF file. This function processes the PDF file,
-    creates a Document object, and saves the PDF file to the server.
-    It also creates Page objects for each page in the PDF and saves
-    images of the pages to the server.
-
-    Args:
-        file (File): The uploaded PDF file.
-        vessel_obj (Vessel): The Vessel object associated with the document.
-        output (str): The output directory where the PDF and images are saved.
-    """
-    try:
-        document_id = save_document(file, vessel_obj)
-    except IntegrityError as e:
-        logging.error(f"Error saving document '{file.name}': {e}")
-        raise
-
-    # If document_id == None then the document was already saved
-    # and has been processed. We don't need to do anything else.
-    if not document_id:
-        logging.info(
-            f"Document '{file.name}' already exists. No further processing required."  # noqa 501
-        )
-        return
-
-    document = Document.objects.get(id=document_id)
-
-    upload_directory = os.path.join(MEDIA_ROOT, "pages")
-    os.makedirs(upload_directory, exist_ok=True)
-
-    convert_pdf(file, document, upload_directory, scale=4)
-
-    return document_id
 
 
 def unzip_file(zip_path: str) -> str:
