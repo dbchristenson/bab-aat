@@ -60,7 +60,16 @@ SECRET_KEY = secret
 DEBUG = True
 
 gcp_cloudrun_host = os.getenv("GCP_CLOUDRUN_HOST")
-ALLOWED_HOSTS = ["localhost", gcp_cloudrun_host]
+ALLOWED_HOSTS = [
+    "localhost",
+]
+
+if gcp_cloudrun_host:
+    ALLOWED_HOSTS.append(gcp_cloudrun_host)
+else:
+    raise ValueError(
+        "GCP_CLOUDRUN_HOST environment variable is not set. Please set it to the correct value."
+    )
 
 
 # Application definition
