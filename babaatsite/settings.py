@@ -15,7 +15,7 @@ import sys
 import types
 from pathlib import Path
 
-from secret_utils import load_all_secrets
+from babaatsite.secret_utils import load_all_secrets
 
 if "test" in sys.argv:
     # pretend pypdfium2 is a plain Python module
@@ -96,6 +96,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

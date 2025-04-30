@@ -7,5 +7,13 @@ services:
     image: bab-aat:latest
     ports:
       - "8080:8080"
+    environment:
+      DJANGO_SETTINGS_MODULE: "babaatsite.settings"
+      SECRETS_BASE_DIR: ""
+    command: >
+      uvicorn babaatsite.asgi:application
+        --host 0.0.0.0
+        --port 8080
+        --log-level debug
     env_file:
       - ".env"
