@@ -28,7 +28,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
     command: >
-      celery -A babaatsite worker --pool prefork --concurrency 12 --loglevel info
+      uv run celery -A babaatsite worker --pool prefork --concurrency 12 --loglevel info
     env_file:
       - ".env"
     volumes:
