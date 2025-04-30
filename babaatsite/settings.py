@@ -15,7 +15,7 @@ import sys
 import types
 from pathlib import Path
 
-from dotenv import load_dotenv
+from secret_utils import load_all_secrets
 
 if "test" in sys.argv:
     # pretend pypdfium2 is a plain Python module
@@ -29,6 +29,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = os.path.join(BASE_DIR, "resources", "media")
 MEDIA_URL = "/media/"
 
+SECRETS = load_all_secrets()
+SUPABASE = SECRETS.get("supabase", {})
+S3 = SECRETS.get("s3", {})
+REDIS = SECRETS.get("redis", {})
+DJANGO_SECRET = SECRETS.get("django_secret", "")
+HOSTS = SECRETS.get("hosts", {})
+
+# validate that all secrets contain some value
+for secret in [SUPABASE, S3, REDIS, DJANGO_SECRET, HOSTS]:
+    if not secret:
+        raise ValueError(
+            f"One or more secrets are missing or empty. {secret} broke first."
+        )
+
 STORAGES = {
     "staticfiles": {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
@@ -36,11 +50,11 @@ STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
-            "bucket_name": "media",
-            "access_key": os.getenv("accesskey"),
-            "secret_key": os.getenv("secretkey"),
-            "endpoint_url": os.getenv("endpoint"),
-            "region_name": os.getenv("region"),
+            "bucket_name": S3.get("bucketname", "media"),
+            "access_key": S3.get("accesskey"),
+            "secret_key": S3.get("secretkey"),
+            "endpoint_url": S3.get("endpoint"),
+            "region_name": S3.get("region"),
         },
     },
 }
@@ -49,17 +63,14 @@ STORAGES = {
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-load_dotenv()
-secret = os.getenv("DJANGO_SECRET")
-
-
+secret = DJANGO_SECRET
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = secret
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-gcp_cloudrun_host = os.getenv("GCP_CLOUDRUN_HOST")
+gcp_cloudrun_host = HOSTS.get("GCP_CLOUDRUN_HOST")
 ALLOWED_HOSTS = [
     "localhost",
 ]
@@ -67,9 +78,7 @@ ALLOWED_HOSTS = [
 if gcp_cloudrun_host:
     ALLOWED_HOSTS.append(gcp_cloudrun_host)
 else:
-    raise ValueError(
-        "GCP_CLOUDRUN_HOST environment variable is not set. Please set it to the correct value."
-    )
+    raise ValueError("GCP_CLOUDRUN_HOST environment variable is not set.")
 
 
 # Application definition
@@ -122,11 +131,11 @@ WSGI_APPLICATION = "babaatsite.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("dbname"),
-        "USER": os.getenv("user"),
-        "PASSWORD": os.getenv("password"),
-        "HOST": os.getenv("host"),
-        "PORT": os.getenv("port"),
+        "NAME": SUPABASE.get("dbname"),
+        "USER": SUPABASE.get("user"),
+        "PASSWORD": SUPABASE.get("password"),
+        "HOST": SUPABASE.get("host"),
+        "PORT": SUPABASE.get("port"),
     }
 }
 
@@ -173,8 +182,8 @@ STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
-CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = os.getenv(
+CELERY_BROKER_URL = REDIS.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = REDIS.get(
     "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
 )
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
