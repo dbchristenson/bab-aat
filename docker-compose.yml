@@ -31,5 +31,3 @@ services:
       uv run celery -A babaatsite worker --pool prefork --concurrency 12 --loglevel info
     env_file:
       - ".env"
-    volumes:
-      - .:/app
