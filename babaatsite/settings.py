@@ -59,7 +59,8 @@ SECRET_KEY = secret
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+gcp_cloudrun_host = os.getenv("GCP_CLOUDRUN_HOST")
+ALLOWED_HOSTS = ["localhost", gcp_cloudrun_host]
 
 
 # Application definition
