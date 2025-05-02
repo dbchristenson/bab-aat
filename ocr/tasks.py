@@ -49,7 +49,7 @@ def handle_pdf(file: File, vessel_obj: Vessel | None, output: str) -> None:
     return document_id
 
 
-@shared_task(bind=True)
+@shared_task(bind=True, ignore_result=True)
 def process_pdf_task(self, disk_path: str, vessel_id: int, output_dir: str):
     """
     Celery task wrapper for handling pdfs

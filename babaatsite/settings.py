@@ -29,6 +29,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_ROOT = os.path.join(BASE_DIR, "resources", "media")
 MEDIA_URL = "/media/"
 
+# Secrets management
 SECRETS = load_all_secrets()
 SUPABASE = SECRETS.get("supabase", {})
 S3 = SECRETS.get("s3", {})
@@ -48,7 +49,7 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
     "default": {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "ocr.storages.ChunkedS3Storage",
         "OPTIONS": {
             "bucket_name": S3.get("bucketname", "media"),
             "access_key": S3.get("accesskey"),
@@ -58,6 +59,8 @@ STORAGES = {
         },
     },
 }
+
+STORAGE = ["default"]["BACKEND"] = "ocr.storages.ChunkedS3Storage"
 
 
 # Quick-start development settings - unsuitable for production

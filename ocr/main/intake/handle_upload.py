@@ -65,8 +65,8 @@ def _save_in_chunks(
     """
     Write an uploaded file to disk in chunks to avoid large memory usage.
     """
-    with default_storage.open(dest_path, "wb") as out:
-        for chunk in django_file.chunks(chunk_size=chunk_size):
+    with open(dest_path, "wb") as out:
+        for chunk in django_file.chunks(chunk_size):
             out.write(chunk)
 
     return dest_path
