@@ -4,7 +4,6 @@ import uuid
 import zipfile
 
 from django.core.files import File
-from django.core.files.storage import default_storage
 
 from babaatsite.settings import MEDIA_ROOT
 from ocr.main.utils.loggers import basic_logging
@@ -99,6 +98,7 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
         vessel_id (int): The ID of the vessel associated with the document.
     """
     vessel_obj = Vessel.objects.filter(name=vessel_name).first()
+    vessel_id = vessel_obj.id
 
     upload_directory = os.path.join(MEDIA_ROOT, "documents")
     os.makedirs(upload_directory, exist_ok=True)
@@ -128,7 +128,7 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
         chunk = pdf_paths[i : i + chunk_size]  # noqa 203
         for pdf_path in chunk:
             tid = process_pdf_task.delay(
-                pdf_path, vessel_obj, upload_directory
+                pdf_path, vessel_id, upload_directory
             )  # noqa E501
             task_ids.append(tid)
 

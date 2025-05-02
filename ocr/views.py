@@ -34,11 +34,11 @@ def upload(request):
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             logging.info("Form is valid. Processing file upload.")
-            vessel_id = form.cleaned_data["vessel"]
+            vessel_name = form.cleaned_data["vessel"]
             file = form.cleaned_data["file"]
 
             try:
-                handle_uploaded_file(file, vessel_id)
+                handle_uploaded_file(file, vessel_name)
             except Exception as e:
                 logging.error(f"Error processing file: {e}")
                 return render(request, "upload.html", {"form": form})
