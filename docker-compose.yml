@@ -17,6 +17,8 @@ services:
         --log-level debug
     env_file:
       - ".env"
+    volumes:
+      - ./resources/media:/app/resources/media
 
   worker:
     build:
@@ -31,3 +33,5 @@ services:
       uv run celery -A babaatsite worker --pool prefork --concurrency 12 --loglevel info
     env_file:
       - ".env"
+    volumes:
+      - ./resources/media:/app/resources/media
