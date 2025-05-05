@@ -9,6 +9,7 @@ import numpy as np
 
 def find_boundary_lines(
     img,
+    blurred,
     canny_thresh1=50,
     canny_thresh2=150,
     hough_thresh=50,
@@ -22,6 +23,7 @@ def find_boundary_lines(
 
     Args:
         img (np.ndarray): Input image as a NumPy array.
+        blurred (np.ndarray): Blurred version of the input image.
         canny_thresh1 (int): Lower threshold for Canny edge detection.
         canny_thresh2 (int): Higher threshold for Canny edge detection.
         hough_thresh (int): Accumulator threshold parameter for HoughLinesP.
@@ -41,10 +43,6 @@ def find_boundary_lines(
         return None
 
     height, width = img.shape[:2]
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # Apply Gaussian Blur to reduce noise and improve edge detection
-    blurred = cv2.GaussianBlur(gray, (9, 9), 0)
 
     # Use Canny edge detector
     edges = cv2.Canny(blurred, canny_thresh1, canny_thresh2)
@@ -557,3 +555,474 @@ def translate_ocr_coordinates(
 
     print(f"Translated coordinates for {len(combined_results)} OCR results.")
     return combined_results
+
+
+def calculate_black_pixel_ratio(image_slice):
+    """Calculates the ratio of black pixels (value 0) in a given slice."""
+    if image_slice is None or image_slice.size == 0:
+        return 0.0
+    # Ensure the image is 2D (grayscale/binary)
+    if len(image_slice.shape) > 2:
+        # Convert to grayscale if needed, assuming BGR format
+        image_slice = cv2.cvtColor(image_slice, cv2.COLOR_BGR2GRAY)
+
+    # Threshold if not already binary (adjust threshold value if needed)
+    # Assuming black pixels are close to 0 and white pixels are close to 255
+    # Using Otsu's method can be good for adaptive thresholding
+    _, binary_slice = cv2.threshold(
+        image_slice, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+    # Or a fixed threshold if contrast is reliable:
+    # _, binary_slice = cv2.threshold(image_slice, 128, 255, cv2.THRESH_BINARY_INV)
+
+    black_pixels = np.count_nonzero(
+        binary_slice == 255
+    )  # Pixels are 255 after THRESH_BINARY_INV
+    total_pixels = binary_slice.size
+    ratio = black_pixels / total_pixels if total_pixels > 0 else 0.0
+    return ratio
+
+
+def find_edge_buffers(
+    img_binary, scan_depth_px=50, artifact_threshold_alpha=0.8, slice_step_px=2
+):
+    """
+    Detects solid artifact borders and determines the required buffer size for each side.
+
+    Args:
+        img_binary (np.array): Input image, preprocessed (grayscale/binary).
+                                Assumes black is 0, white is 255.
+        scan_depth_px (int): How many pixels deep from the edge to check initially.
+        artifact_threshold_alpha (float): Ratio of black pixels to classify as artifact.
+        slice_step_px (int): Step size for inward slicing when searching artifact end.
+
+    Returns:
+        dict: {'top': buffer_px, 'bottom': buffer_px, 'left': buffer_px, 'right': buffer_px}
+    """
+    height, width = img_binary.shape[:2]
+    buffers = {"top": 0, "bottom": 0, "left": 0, "right": 0}
+
+    # --- Top Buffer ---
+    initial_slice_top = img_binary[0:scan_depth_px, :]
+    if (
+        calculate_black_pixel_ratio(initial_slice_top)
+        > artifact_threshold_alpha
+    ):
+        print("Artifact detected: Top")
+        for y in range(
+            slice_step_px, scan_depth_px * 2, slice_step_px
+        ):  # Search deeper if needed
+            current_slice = img_binary[y : y + slice_step_px, :]
+            if (
+                calculate_black_pixel_ratio(current_slice)
+                < artifact_threshold_alpha
+            ):
+                buffers["top"] = y
+                print(f"  Top buffer set to: {y}px")
+                break
+        else:  # If loop finishes without breaking
+            print(
+                f"  Warning: Top artifact persists beyond search depth. Using default buffer: {scan_depth_px}"
+            )
+            buffers["top"] = scan_depth_px  # Fallback if artifact is very thick
+
+    # --- Bottom Buffer ---
+    initial_slice_bottom = img_binary[height - scan_depth_px : height, :]
+    if (
+        calculate_black_pixel_ratio(initial_slice_bottom)
+        > artifact_threshold_alpha
+    ):
+        print("Artifact detected: Bottom")
+        for y in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+            current_slice = img_binary[
+                height - y - slice_step_px : height - y, :
+            ]
+            if (
+                calculate_black_pixel_ratio(current_slice)
+                < artifact_threshold_alpha
+            ):
+                buffers["bottom"] = y
+                print(f"  Bottom buffer set to: {y}px")
+                break
+        else:
+            print(
+                f"  Warning: Bottom artifact persists beyond search depth. Using default buffer: {scan_depth_px}"
+            )
+            buffers["bottom"] = scan_depth_px
+
+    # --- Left Buffer ---
+    initial_slice_left = img_binary[:, 0:scan_depth_px]
+    if (
+        calculate_black_pixel_ratio(initial_slice_left)
+        > artifact_threshold_alpha
+    ):
+        print("Artifact detected: Left")
+        for x in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+            current_slice = img_binary[:, x : x + slice_step_px]
+            if (
+                calculate_black_pixel_ratio(current_slice)
+                < artifact_threshold_alpha
+            ):
+                buffers["left"] = x
+                print(f"  Left buffer set to: {x}px")
+                break
+        else:
+            print(
+                f"  Warning: Left artifact persists beyond search depth. Using default buffer: {scan_depth_px}"
+            )
+            buffers["left"] = scan_depth_px
+
+    # --- Right Buffer ---
+    initial_slice_right = img_binary[:, width - scan_depth_px : width]
+    if (
+        calculate_black_pixel_ratio(initial_slice_right)
+        > artifact_threshold_alpha
+    ):
+        print("Artifact detected: Right")
+        for x in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+            current_slice = img_binary[:, width - x - slice_step_px : width - x]
+            if (
+                calculate_black_pixel_ratio(current_slice)
+                < artifact_threshold_alpha
+            ):
+                buffers["right"] = x
+                print(f"  Right buffer set to: {x}px")
+                break
+        else:
+            print(
+                f"  Warning: Right artifact persists beyond search depth. Using default buffer: {scan_depth_px}"
+            )
+            buffers["right"] = scan_depth_px
+
+    return buffers
+
+
+def find_outer_border_edges(
+    img_binary,
+    buffers,
+    border_start_threshold_alpha=0.05,
+    slice_step_px=2,
+    max_whitespace_ratio=0.3,
+):
+    """
+    Finds the start of the actual document border after skipping buffer and whitespace.
+
+    Args:
+        img_binary (np.array): Input binary image.
+        buffers (dict): Dictionary of buffer pixels for each side from find_edge_buffers.
+        border_start_threshold_alpha (float): Black pixel ratio to detect border start.
+        slice_step_px (int): Step size for inward slicing.
+        max_whitespace_ratio (float): Max distance (as ratio of dim) to search for border.
+
+    Returns:
+        dict: {'top': y, 'bottom': y, 'left': x, 'right': x} coordinates of outer border.
+              Returns None if a border cannot be reliably found.
+    """
+    height, width = img_binary.shape[:2]
+    outer_edges = {}
+    max_search_y = int(height * max_whitespace_ratio)
+    max_search_x = int(width * max_whitespace_ratio)
+
+    # --- Top Outer Edge ---
+    start_y = buffers["top"]
+    found_top = False
+    for y in range(
+        start_y, min(start_y + max_search_y, height // 2), slice_step_px
+    ):
+        current_slice = img_binary[
+            y : y + slice_step_px, buffers["left"] : width - buffers["right"]
+        ]  # Search within side buffers
+        if (
+            calculate_black_pixel_ratio(current_slice)
+            > border_start_threshold_alpha
+        ):
+            outer_edges["top"] = y
+            print(f"Outer border found - Top: {y}px")
+            found_top = True
+            break
+    if not found_top:
+        print("Error: Could not find top outer border within search limit.")
+        return None
+
+    # --- Bottom Outer Edge ---
+    start_y = buffers["bottom"]
+    found_bottom = False
+    for y in range(
+        start_y, min(start_y + max_search_y, height // 2), slice_step_px
+    ):
+        abs_y = height - 1 - y
+        current_slice = img_binary[
+            abs_y - slice_step_px : abs_y,
+            buffers["left"] : width - buffers["right"],
+        ]
+        if (
+            calculate_black_pixel_ratio(current_slice)
+            > border_start_threshold_alpha
+        ):
+            outer_edges["bottom"] = abs_y  # Store the absolute coordinate
+            print(f"Outer border found - Bottom: {abs_y}px")
+            found_bottom = True
+            break
+    if not found_bottom:
+        print("Error: Could not find bottom outer border within search limit.")
+        return None
+
+    # --- Left Outer Edge ---
+    start_x = buffers["left"]
+    found_left = False
+    for x in range(
+        start_x, min(start_x + max_search_x, width // 2), slice_step_px
+    ):
+        current_slice = img_binary[
+            outer_edges["top"] : outer_edges["bottom"], x : x + slice_step_px
+        ]  # Search within top/bottom edges
+        if (
+            calculate_black_pixel_ratio(current_slice)
+            > border_start_threshold_alpha
+        ):
+            outer_edges["left"] = x
+            print(f"Outer border found - Left: {x}px")
+            found_left = True
+            break
+    if not found_left:
+        print("Error: Could not find left outer border within search limit.")
+        return None
+
+    # --- Right Outer Edge ---
+    start_x = buffers["right"]
+    found_right = False
+    for x in range(
+        start_x, min(start_x + max_search_x, width // 2), slice_step_px
+    ):
+        abs_x = width - 1 - x
+        current_slice = img_binary[
+            outer_edges["top"] : outer_edges["bottom"],
+            abs_x - slice_step_px : abs_x,
+        ]
+        if (
+            calculate_black_pixel_ratio(current_slice)
+            > border_start_threshold_alpha
+        ):
+            outer_edges["right"] = abs_x  # Store the absolute coordinate
+            print(f"Outer border found - Right: {abs_x}px")
+            found_right = True
+            break
+    if not found_right:
+        print("Error: Could not find right outer border within search limit.")
+        return None
+
+    # Basic validation
+    if not (
+        outer_edges["top"] < outer_edges["bottom"]
+        and outer_edges["left"] < outer_edges["right"]
+    ):
+        print(
+            "Error: Outer border edge calculations resulted in invalid dimensions."
+        )
+        return None
+
+    return outer_edges
+
+
+def find_inner_border_edges(
+    outer_edges,
+    H_lines,
+    V_lines,
+    expected_border_thickness_px=150,
+    search_buffer_px=50,
+):
+    """
+    Finds the innermost border lines by searching within a band defined by
+    the outer edges and expected thickness.
+
+    Args:
+        outer_edges (dict): Coordinates of the outer border edges.
+        H_lines (list): List of detected horizontal lines (((x1, y1), (x2, y2)), ...).
+        V_lines (list): List of detected vertical lines (((x1, y1), (x2, y2)), ...).
+        expected_border_thickness_px (int): Estimated thickness of the border area.
+        search_buffer_px (int): Additional buffer for the search band to handle variations.
+
+    Returns:
+        dict: {'top': y, 'bottom': y, 'left': x, 'right': x} coordinates of inner border.
+              Returns None if essential borders cannot be found.
+    """
+    if outer_edges is None:
+        return None
+    inner_edges = {}
+    search_band = expected_border_thickness_px + search_buffer_px
+
+    # --- Inner Top Edge ---
+    search_min_y = outer_edges["top"]
+    search_max_y = outer_edges["top"] + search_band
+    top_candidates = [
+        max(l[0][1], l[1][1])
+        for l in H_lines
+        if search_min_y < (l[0][1] + l[1][1]) / 2 < search_max_y
+    ]  # Check midpoint is in band
+    if top_candidates:
+        inner_edges["top"] = int(max(top_candidates))  # Innermost is max Y
+        print(
+            f"Inner border found - Top: {inner_edges['top']}px (search band {search_min_y}-{search_max_y})"
+        )
+    else:
+        print(
+            f"Error: No suitable horizontal line found for inner top border in band {search_min_y}-{search_max_y}."
+        )
+        # Fallback: Use outer edge + fixed offset? Or return None?
+        inner_edges["top"] = (
+            outer_edges["top"] + expected_border_thickness_px // 2
+        )  # Simple fallback
+        print(f"  Using fallback inner top: {inner_edges['top']}")
+        # return None # Stricter: fail if no line found
+
+    # --- Inner Bottom Edge ---
+    search_max_y = outer_edges["bottom"]
+    search_min_y = outer_edges["bottom"] - search_band
+    bottom_candidates = [
+        min(l[0][1], l[1][1])
+        for l in H_lines
+        if search_min_y < (l[0][1] + l[1][1]) / 2 < search_max_y
+    ]
+    if bottom_candidates:
+        inner_edges["bottom"] = int(
+            min(bottom_candidates)
+        )  # Innermost is min Y
+        print(
+            f"Inner border found - Bottom: {inner_edges['bottom']}px (search band {search_min_y}-{search_max_y})"
+        )
+    else:
+        print(
+            f"Error: No suitable horizontal line found for inner bottom border in band {search_min_y}-{search_max_y}."
+        )
+        inner_edges["bottom"] = (
+            outer_edges["bottom"] - expected_border_thickness_px // 2
+        )
+        print(f"  Using fallback inner bottom: {inner_edges['bottom']}")
+        # return None
+
+    # --- Inner Left Edge ---
+    search_min_x = outer_edges["left"]
+    search_max_x = outer_edges["left"] + search_band
+    left_candidates = [
+        max(l[0][0], l[1][0])
+        for l in V_lines
+        if search_min_x < (l[0][0] + l[1][0]) / 2 < search_max_x
+    ]
+    if left_candidates:
+        inner_edges["left"] = int(max(left_candidates))  # Innermost is max X
+        print(
+            f"Inner border found - Left: {inner_edges['left']}px (search band {search_min_x}-{search_max_x})"
+        )
+    else:
+        print(
+            f"Error: No suitable vertical line found for inner left border in band {search_min_x}-{search_max_x}."
+        )
+        inner_edges["left"] = (
+            outer_edges["left"] + expected_border_thickness_px // 2
+        )
+        print(f"  Using fallback inner left: {inner_edges['left']}")
+        # return None
+
+    # --- Inner Right Edge ---
+    # This will likely be the divider line or the table's right edge
+    search_max_x = outer_edges["right"]
+    search_min_x = outer_edges["right"] - search_band
+    right_candidates = [
+        min(l[0][0], l[1][0])
+        for l in V_lines
+        if search_min_x < (l[0][0] + l[1][0]) / 2 < search_max_x
+    ]
+    if right_candidates:
+        inner_edges["right"] = int(min(right_candidates))  # Innermost is min X
+        print(
+            f"Inner border found - Right: {inner_edges['right']}px (search band {search_min_x}-{search_max_x})"
+        )
+    else:
+        print(
+            f"Error: No suitable vertical line found for inner right border in band {search_min_x}-{search_max_x}."
+        )
+        inner_edges["right"] = (
+            outer_edges["right"] - expected_border_thickness_px // 2
+        )
+        print(f"  Using fallback inner right: {inner_edges['right']}")
+        # return None
+
+    # --- Divider Line ---
+    # Search for a strong vertical line between inner_left and inner_right
+    # --- Start search further to the right (e.g., 60% across the figure area) ---
+    figure_width = inner_edges["right"] - inner_edges["left"]
+    # Ensure figure_width is positive before calculating ratio
+    if figure_width <= 0:
+        print("Error: Invalid left/right inner edges for divider search.")
+        # Handle error: estimate divider, or return None from function
+        inner_edges["divider"] = inner_edges["left"] + 100  # Arbitrary fallback
+    else:
+        # Start searching, e.g., 60% of the way from left towards right inner edge
+        divider_search_start = inner_edges["left"] + int(figure_width * 0.80)
+        # End search slightly before the determined right inner edge
+        divider_search_end = (
+            inner_edges["right"] - 50
+        )  # Keep buffer from right edge
+
+        height = (
+            outer_edges["bottom"] - outer_edges["top"]
+        )  # Use outer edges for height ref
+        min_divider_height = height * 0.5
+
+        divider_candidates = []
+        print(
+            f"Divider search range: {divider_search_start}px to {divider_search_end}px"
+        )
+        for l in V_lines:
+            x_avg = (l[0][0] + l[1][0]) / 2
+            line_len = abs(l[0][1] - l[1][1])
+            # Check if the line is within the refined divider region and long enough
+            if (
+                divider_search_start < x_avg < divider_search_end
+                and line_len > min_divider_height
+            ):
+                # Check if it spans a significant portion vertically within the bounds
+                line_y_min = min(l[0][1], l[1][1])
+                line_y_max = max(l[0][1], l[1][1])
+                # Adjust vertical span check relative to inner edges top/bottom
+                if (
+                    line_y_min < inner_edges["top"] + height * 0.2
+                    and line_y_max > inner_edges["bottom"] - height * 0.2
+                ):
+                    divider_candidates.append(x_avg)
+
+        if divider_candidates:
+            # --- Select the RIGHTMOST candidate ---
+            inner_edges["divider"] = int(max(divider_candidates))
+            print(
+                f"Divider line found at x={inner_edges['divider']}px (selected rightmost)"
+            )
+        else:
+            print(
+                "Warning: Could not find clear divider line in refined zone. Estimating."
+            )
+            # Fallback estimation remains the same, based on determined left/right
+            inner_edges["divider"] = int(
+                inner_edges["left"]
+                + (inner_edges["right"] - inner_edges["left"]) * 0.75
+            )
+
+    # Final validation
+    if not (
+        "top" in inner_edges
+        and "bottom" in inner_edges
+        and "left" in inner_edges
+        and "divider" in inner_edges
+        and "right" in inner_edges
+        and inner_edges["top"] < inner_edges["bottom"]
+        and inner_edges["left"] < inner_edges["divider"] < inner_edges["right"]
+    ):
+        print(
+            "Error: Inner border calculation resulted in invalid or incomplete dimensions."
+        )
+        return None
+
+    # Rename 'right' to 'table_right' for clarity if needed
+    inner_edges["table_right"] = inner_edges.pop("right")
+
+    return inner_edges
