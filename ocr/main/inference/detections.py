@@ -84,7 +84,7 @@ def get_page_detections(
 
 
 def analyze_document(
-    document: Document, ocr: PaddleOCR, param_config: str
+    document_id: int, ocr: PaddleOCR, param_config: str
 ) -> list[Detection]:
     """
     Analyze a document by processing each page and extracting detections.
@@ -92,7 +92,7 @@ def analyze_document(
     them away if you don't need them.
 
     Args:
-        document (Document): The document object containing metadata and pages.
+        document_id (int): The ID of the document to analyze.
         ocr (PaddleOCR): The configured OCR network.
         param_config (str): The name of the param_config or model used.
 
@@ -100,6 +100,7 @@ def analyze_document(
         list[Detection]: List of detection objects for the document.
     """
 
+    document = Document.objects.get(id=document_id)
     pages = Page.objects.filter(document=document)
 
     all_detections = []

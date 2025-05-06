@@ -58,3 +58,18 @@ def process_pdf_task(self, disk_path: str, vessel_id: int, output_dir: str):
     with open(disk_path, "rb") as f:
         django_file = File(f, name=os.path.basename(disk_path))
         handle_pdf(django_file, vessel, output_dir)
+
+
+@shared_task(bind=True, ignore_result=False)
+def get_document_detections(self, document_id: int, config_path: str):
+    """
+    Celery task to get detections for a document.
+    """
+    from ocr.main.inference.detections import analyze_document
+
+    logging.info(f"Starting detection for document {document_id}")
+
+    analyze_document(
+        document_id=document_id,
+        config_path=config_path,
+    )
