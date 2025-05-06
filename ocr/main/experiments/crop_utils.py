@@ -416,11 +416,9 @@ def extract_regions(img, boundaries, padding=5):
     y_bottom_crop = min(h, boundaries["y_bottom"] - padding)
     x_left_crop = max(0, boundaries["x_left"] + padding)
     x_divider_fig_crop = min(
-        w, boundaries["x_divider"] - padding
+        w, boundaries["x_divider"]
     )  # Right edge for figure
-    x_divider_tab_crop = max(
-        0, boundaries["x_divider"] + padding
-    )  # Left edge for table
+    x_divider_tab_crop = max(0, boundaries["x_divider"])  # Left edge for table
     x_right_crop = min(w, boundaries["x_right"] - padding)
 
     # Check for invalid crop dimensions immediately after calculation
@@ -570,10 +568,8 @@ def calculate_black_pixel_ratio(image_slice):
     # Assuming black pixels are close to 0 and white pixels are close to 255
     # Using Otsu's method can be good for adaptive thresholding
     _, binary_slice = cv2.threshold(
-        image_slice, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        image_slice, 128, 255, cv2.THRESH_BINARY_INV
     )
-    # Or a fixed threshold if contrast is reliable:
-    # _, binary_slice = cv2.threshold(image_slice, 128, 255, cv2.THRESH_BINARY_INV)
 
     black_pixels = np.count_nonzero(
         binary_slice == 255
@@ -601,6 +597,7 @@ def find_edge_buffers(
     """
     height, width = img_binary.shape[:2]
     buffers = {"top": 0, "bottom": 0, "left": 0, "right": 0}
+    MAX_ARTIFACT_SEARCH_DEPTH = max(0, int(width * 0.1))
 
     # --- Top Buffer ---
     initial_slice_top = img_binary[0:scan_depth_px, :]
@@ -610,7 +607,7 @@ def find_edge_buffers(
     ):
         print("Artifact detected: Top")
         for y in range(
-            slice_step_px, scan_depth_px * 2, slice_step_px
+            slice_step_px, MAX_ARTIFACT_SEARCH_DEPTH, slice_step_px
         ):  # Search deeper if needed
             current_slice = img_binary[y : y + slice_step_px, :]
             if (
@@ -627,16 +624,34 @@ def find_edge_buffers(
             buffers["top"] = scan_depth_px  # Fallback if artifact is very thick
 
     # --- Bottom Buffer ---
+    print(f"\nDEBUG: Checking Bottom Buffer...")
+    debug_scan_depth = scan_depth_px  # Use the actual scan_depth parameter
+    debug_slice_bottom = img_binary[height - debug_scan_depth : height, :]
+    print(f"DEBUG: Bottom slice shape: {debug_slice_bottom.shape}")
+    debug_ratio_bottom = calculate_black_pixel_ratio(debug_slice_bottom)
+    print(
+        f"DEBUG: Initial Bottom Slice Ratio: {debug_ratio_bottom} (Threshold: {artifact_threshold_alpha})"
+    )
+
     initial_slice_bottom = img_binary[height - scan_depth_px : height, :]
     if (
         calculate_black_pixel_ratio(initial_slice_bottom)
         > artifact_threshold_alpha
     ):
         print("Artifact detected: Bottom")
-        for y in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+        for y in range(slice_step_px, MAX_ARTIFACT_SEARCH_DEPTH, slice_step_px):
             current_slice = img_binary[
                 height - y - slice_step_px : height - y, :
             ]
+            print(
+                "DEBUG: height - y - slice_step_px:", height - y - slice_step_px
+            )
+            print("DEBUG: height - y:", height - y)
+            print(
+                "DEBUG: black_pixel_ratio: ",
+                calculate_black_pixel_ratio(current_slice),
+            )
+            print("DEBUG: Artifact Threshold:", artifact_threshold_alpha)
             if (
                 calculate_black_pixel_ratio(current_slice)
                 < artifact_threshold_alpha
@@ -657,7 +672,7 @@ def find_edge_buffers(
         > artifact_threshold_alpha
     ):
         print("Artifact detected: Left")
-        for x in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+        for x in range(slice_step_px, MAX_ARTIFACT_SEARCH_DEPTH, slice_step_px):
             current_slice = img_binary[:, x : x + slice_step_px]
             if (
                 calculate_black_pixel_ratio(current_slice)
@@ -679,7 +694,7 @@ def find_edge_buffers(
         > artifact_threshold_alpha
     ):
         print("Artifact detected: Right")
-        for x in range(slice_step_px, scan_depth_px * 2, slice_step_px):
+        for x in range(slice_step_px, MAX_ARTIFACT_SEARCH_DEPTH, slice_step_px):
             current_slice = img_binary[:, width - x - slice_step_px : width - x]
             if (
                 calculate_black_pixel_ratio(current_slice)
