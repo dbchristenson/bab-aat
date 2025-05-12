@@ -290,6 +290,21 @@ def _figure_extraction(img, **kwargs):
     """
     contours = _find_contours(img)
 
+    if not contours:
+        logging.warning(
+            "No contours found in the image. Using fallback of entire image."
+        )
+        contours = [
+            np.array(
+                [
+                    [0, 0],
+                    [img.shape[1], 0],
+                    [img.shape[1], img.shape[0]],
+                    [0, img.shape[0]],
+                ]
+            )
+        ]
+
     contour_candidates = find_significant_inner_boundary(
         all_contours=contours,
         img=img,
@@ -302,7 +317,13 @@ def _figure_extraction(img, **kwargs):
         ),  # Drop-off if area ratio > 1.75
     )
 
-    best_candidate = contour_candidates[0]
+    if not contour_candidates:
+        logging.warning("No significant inner boundary found. Using fallback.")
+        sorted_contours = sorted(contours, key=cv.contourArea, reverse=True)
+        best_candidate = sorted_contours[0]
+    else:
+        best_candidate = contour_candidates[0]
+
     figure_bbox = cv.boundingRect(best_candidate)
 
     if kwargs.get("show_bbox", False):
