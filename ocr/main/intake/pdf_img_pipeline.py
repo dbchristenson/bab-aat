@@ -2,12 +2,13 @@ import argparse
 import datetime as dt
 import logging
 import os
+from pathlib import Path
 
 import pypdfium2 as pdfium
 from django.core.files import File
+from django.core.files.base import ContentFile
 
 # new imports
-from django.db import IntegrityError
 from django.db.models import Q
 
 from babaatsite.settings import BASE_DIR
@@ -220,27 +221,15 @@ def save_img_to_db(parent_doc: Document, page_num: int, img_path: str) -> None:
     Raises:
         IntegrityError: If database constraints are violated during creation.
     """
-    try:
-        with open(img_path, "rb") as f:
-            django_file = File(f.read())
-            django_file.content_type = "image/png"
-            Page.objects.create(
-                document=parent_doc, page_number=page_num, image=django_file
-            )
-        logging.info(f"Page {page_num} of {parent_doc.name} saved.")
-    except IntegrityError as e:
-        logging.error(
-            f"Error saving page {page_num} of {parent_doc.name}: {e}"
-        )  # noqa 501
-    except FileNotFoundError as e:
-        logging.error(
-            f"File not found for page {page_num} of {parent_doc.name}: {e}"
-        )
-        # Remove from database if file not found
-        parent_doc.delete()
-        logging.info(
-            f"Deleted Document {parent_doc.name} due to missing image file."
-        )
+    data = Path(img_path).read_bytes()  # raw bytes
+    django_file = ContentFile(data, name=Path(img_path).name)
+    django_file.content_type = "image/png"  # keep metadata
+
+    Page.objects.create(
+        document=parent_doc,
+        page_number=page_num,
+        image=django_file,
+    )
 
 
 def convert_pdf(
