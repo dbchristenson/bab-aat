@@ -112,6 +112,7 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
     ext = django_file.name.rsplit(".", 1)[-1].lower()
     if ext == "pdf":
         pdf_paths = [disk_path]
+        logging.info(f"PDF path: {pdf_paths}")
     else:
         # unzip then collect PDFs
         extract_dir = os.path.splitext(disk_path)[0]

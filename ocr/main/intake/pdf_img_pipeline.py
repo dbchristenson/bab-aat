@@ -223,6 +223,7 @@ def save_img_to_db(parent_doc: Document, page_num: int, img_path: str) -> None:
     try:
         with open(img_path, "rb") as f:
             django_file = File(f, name=os.path.basename(img_path))
+            django_file.content_type = "image/png"
             Page.objects.create(
                 document=parent_doc, page_number=page_num, image=django_file
             )
