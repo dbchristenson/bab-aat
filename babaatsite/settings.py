@@ -49,7 +49,7 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
     "default": {
-        "BACKEND": "ocr.storages.ChunkedS3Storage",
+        "BACKEND": "ocr.storages.SmallFileS3Storage",
         "OPTIONS": {
             "bucket_name": S3.get("bucketname", "media"),
             "access_key": S3.get("accesskey"),

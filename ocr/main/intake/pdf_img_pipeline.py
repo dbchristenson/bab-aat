@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pypdfium2 as pdfium
 from django.core.files import File
-from django.core.files.base import ContentFile
 
 # new imports
 from django.db.models import Q
@@ -221,15 +220,15 @@ def save_img_to_db(parent_doc: Document, page_num: int, img_path: str) -> None:
     Raises:
         IntegrityError: If database constraints are violated during creation.
     """
-    data = Path(img_path).read_bytes()  # raw bytes
-    django_file = ContentFile(data, name=Path(img_path).name)
-    django_file.content_type = "image/png"  # keep metadata
+    page = Page(document=parent_doc, page_number=page_num)
 
-    Page.objects.create(
-        document=parent_doc,
-        page_number=page_num,
-        image=django_file,
-    )
+    # This will invoke your SmallFileS3Storage._save() path:
+    with open(img_path, "rb") as f:
+        page.image.save(
+            Path(img_path).name,  # e.g. "21020-…_0.png"
+            File(f),  # raw, local PNG bytes
+            save=True,
+        )
 
 
 def convert_pdf(

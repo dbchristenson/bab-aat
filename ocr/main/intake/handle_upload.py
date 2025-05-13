@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import uuid
 import zipfile
 
@@ -64,9 +65,9 @@ def _save_in_chunks(
     """
     Write an uploaded file to disk in chunks to avoid large memory usage.
     """
-    with open(dest_path, "wb") as out:
-        for chunk in django_file.chunks(chunk_size):
-            out.write(chunk)
+    django_file.seek(0)
+    with open(dest_path, "wb") as out, django_file.file as src:
+        shutil.copyfileobj(src, out, length=chunk_size)
 
     return dest_path
 
