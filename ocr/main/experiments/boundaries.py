@@ -2,10 +2,11 @@ import logging
 import math  # For checking non-finite numbers
 
 import cv2 as cv
-import matplotlib.pyplot as plt
 import numpy as np
 
-gray_cmap = plt.get_cmap("gray")
+from ocr.main.utils.loggers import basic_logging
+
+basic_logging(__name__)
 
 # --- Helper Functions ---
 
@@ -176,7 +177,7 @@ def find_significant_inner_boundary(
     try:
         h_img, w_img = _get_image_dimensions(img)
     except ValueError as e:
-        logging.critical(f"Error getting image dimensions: {e}")
+        logging.error(f"Error getting image dimensions: {e}")
         return []
 
     logging.debug(f"Image Dimensions (HxW): {h_img} x {w_img}")
@@ -204,7 +205,7 @@ def find_significant_inner_boundary(
     )
 
     if not valid_contours_data:
-        logging.critical(
+        logging.warning(
             "Warning: No valid contours remaining after initial filtering."
         )
         return []
@@ -222,7 +223,7 @@ def find_significant_inner_boundary(
     )
 
     if not primary_candidates_data:
-        logging.critical("Warning: No primary candidates identified.")
+        logging.warning("Warning: No primary candidates identified.")
         return []
 
     # Select the smallest area contour from the primary candidates
@@ -251,8 +252,8 @@ def _find_contours(
     Takes a MatLike object and returns contours. This function handles the
     binarization of the image as well as the contour finding.
     """
-    ret, thresh = cv.threshold(img, min_thresh, max_thresh, 0)
-    all_contours, hierarchy = cv.findContours(thresh, mode, method)
+    _, thresh = cv.threshold(img, min_thresh, max_thresh, cv.THRESH_BINARY)
+    all_contours, _ = cv.findContours(thresh, mode, method)
 
     return all_contours
 
@@ -261,24 +262,21 @@ def _draw_bbox_on_image(img, bbox, color=(0, 255, 0), thickness=2):
     """
     Draws a bounding box on the image and displays it.
     """
+    color_img = cv.cvtColor(img, cv.COLOR_GRAY2RGB)
+
     x, y, w, h = bbox
-    cv.rectangle(img, (x, y), (x + w, y + h), color, thickness)
+    bbox_im = cv.rectangle(color_img, (x, y), (x + w, y + h), color, thickness)
 
-    # Display the image with the bounding box
-    plt.imshow(img, cmap=gray_cmap)
-    plt.axis("off")
-    plt.show()
-
-    return img
+    return bbox_im
 
 
-def _figure_extraction(img, **kwargs):
+def _figure_extraction(img: np.ndarray, **kwargs):
     """
     Takes a MatLike object and returns the bbox of the figure translated to
     the original image coordinate system.
 
     Args:
-        img (MatLike): The image to process.
+        img (np.ndarray): The image to process.
         **kwargs: Additional arguments for contour finding.
             - min_area_ratio (float): Minimum area ratio for contour filter.
             - edge_margin_ratio (float): Edge margin ratio for contour filter.
@@ -286,7 +284,7 @@ def _figure_extraction(img, **kwargs):
             - show_bbox (bool): Bool to display the bounding box on the image.
 
     Returns:
-        tuple: The bounding box of the figure in the format (x, y, w, h).
+        tuple | None: The bbox of the figure in the format (x, y, w, h).
     """
     contours = _find_contours(img)
 
@@ -294,7 +292,7 @@ def _figure_extraction(img, **kwargs):
         logging.warning(
             "No contours found in the image. Using fallback of entire image."
         )
-        contours = [
+        contours = (
             np.array(
                 [
                     [0, 0],
@@ -303,7 +301,9 @@ def _figure_extraction(img, **kwargs):
                     [0, img.shape[0]],
                 ]
             )
-        ]
+            .reshape(-1, 1, 2)
+            .astype(np.int32)
+        )
 
     contour_candidates = find_significant_inner_boundary(
         all_contours=contours,
@@ -350,11 +350,11 @@ def _table_extraction(img, figure_bbox, **kwargs):
     # and trim the top and bottom of the image to the figure bbox
     fx, fy, fw, fh = figure_bbox
 
-    print(img.shape)
+    logging.debug(f"Figure BBox: {figure_bbox}, Image Shape: {img.shape}")
     ih, iw = img.shape
 
-    table_bbox = fx + fw, fy, iw, fh
-    print(table_bbox)
+    table_bbox = fx + fw, fy, iw - (fx + fw), fh
+    logging.debug(f"Table BBox: {table_bbox}")
 
     if kwargs.get("show_bbox", False):
         _draw_bbox_on_image(img, table_bbox)
@@ -368,24 +368,29 @@ def figure_table_extraction(img_path: str, **kwargs):
 
     Args:
         img_path (str): Path to the image file.
+        **kwargs: Additional arguments for figure and table extraction.
+            - figure_kwargs (dict): Arguments for figure extraction.
+            - table_kwargs (dict): Arguments for table extraction.
     """
+    logging.debug(f"=====Loading image from {img_path}=====")
+
     # load image
     img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
 
     # figure extraction
     try:
         figure_kwargs = kwargs.get("figure_kwargs", {})
-        figure_bbox = _figure_extraction(img, kwargs=figure_kwargs)
+        figure_bbox = _figure_extraction(img, **figure_kwargs)
     except Exception as e:
-        print(f"Error during figure extraction: {e}")
+        logging.exception(f"Error during figure extraction: {e}")
         return None, None
 
     # table extraction
     try:
         table_kwargs = kwargs.get("table_kwargs", {})
-        table_bbox = _table_extraction(img, figure_bbox, kwargs=table_kwargs)
+        table_bbox = _table_extraction(img, figure_bbox, **table_kwargs)
     except Exception as e:
-        print(f"Error during table extraction: {e}")
+        logging.exception(f"Error during table extraction: {e}")
         return None, None
 
     # crop image
