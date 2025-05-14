@@ -18,7 +18,6 @@ dependencies = [
     "paddlepaddle>=3.0.0",
     "pandas>=2.2.3",
     "pillow>=11.2.1",
-    "psycopg2>=2.9.10",
     "psycopg2-binary>=2.9.10",
     "pypdfium2>=4.30.1",
     "python-magic >= 0.4.27; sys_platform != 'win32'",

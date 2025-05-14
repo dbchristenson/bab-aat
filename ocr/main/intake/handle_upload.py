@@ -59,7 +59,9 @@ def get_detections(document_ids: list[int]) -> list[dict]:
     return
 
 
-def _save_in_chunks(django_file: File, dest_path: str, chunk_size: int = 64 * 1024):
+def _save_in_chunks(
+    django_file: File, dest_path: str, chunk_size: int = 64 * 1024
+):
     """
     Write an uploaded file to disk in chunks to avoid large memory usage.
     """
@@ -127,9 +129,7 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
     for i in range(0, len(pdf_paths), chunk_size):
         chunk = pdf_paths[i : i + chunk_size]  # noqa 203
         for pdf_path in chunk:
-            tid = process_pdf_task.delay(
-                pdf_path, vessel_id, upload_directory
-            )  # noqa E501
+            tid = process_pdf_task.delay(pdf_path, vessel_id)
             task_ids.append(tid)
 
     return task_ids
