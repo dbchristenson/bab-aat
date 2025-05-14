@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0008_tag'),
+        ("ocr", "0008_tag"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='tag',
-            name='page_number',
+            model_name="tag",
+            name="page_number",
             field=models.IntegerField(default=0),
             preserve_default=False,
         ),

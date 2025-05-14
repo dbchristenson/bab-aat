@@ -8,50 +8,102 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Document',
+            name="Document",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=255)),
-                ('vessel', models.CharField(max_length=255, null=True)),
-                ('document_number', models.CharField(max_length=255, null=True)),
-                ('file_path', models.CharField(max_length=255)),
-                ('file_size', models.IntegerField()),
-                ('last_modified', models.DateTimeField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=255)),
+                ("vessel", models.CharField(max_length=255, null=True)),
+                ("document_number", models.CharField(max_length=255, null=True)),
+                ("file_path", models.CharField(max_length=255)),
+                ("file_size", models.IntegerField()),
+                ("last_modified", models.DateTimeField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
         ),
         migrations.CreateModel(
-            name='Page',
+            name="Page",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('page_number', models.IntegerField()),
-                ('img_path', models.CharField(max_length=255)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('document', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='pages', to='ocr.document')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("page_number", models.IntegerField()),
+                ("img_path", models.CharField(max_length=255)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "document",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="pages",
+                        to="ocr.document",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Detection',
+            name="Detection",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.CharField(max_length=255)),
-                ('confidence', models.FloatField()),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('page', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='detections', to='ocr.page')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.CharField(max_length=255)),
+                ("confidence", models.FloatField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "page",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="detections",
+                        to="ocr.page",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Truth',
+            name="Truth",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.CharField(max_length=255)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('document', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='truths', to='ocr.document')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.CharField(max_length=255)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "document",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="truths",
+                        to="ocr.document",
+                    ),
+                ),
             ],
         ),
     ]

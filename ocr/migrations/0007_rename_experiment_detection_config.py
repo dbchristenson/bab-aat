@@ -6,13 +6,13 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0006_detection_bbox'),
+        ("ocr", "0006_detection_bbox"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='detection',
-            old_name='experiment',
-            new_name='config',
+            model_name="detection",
+            old_name="experiment",
+            new_name="config",
         ),
     ]

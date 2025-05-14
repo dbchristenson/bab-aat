@@ -18,9 +18,7 @@ def get_kraken_without_truth():
     """
 
     relevant_documents = Document.objects.filter(vessel_id=1).exclude(
-        document_number__in=Truth.objects.values_list(
-            "document_number", flat=True
-        )
+        document_number__in=Truth.objects.values_list("document_number", flat=True)
     )
 
     return relevant_documents
@@ -34,9 +32,7 @@ def get_vessel_documents_without_truth(vessel: Vessel):
     annotated.
     """
     relevant_documents = Document.objects.filter(vessel=vessel).exclude(
-        document_number__in=Truth.objects.values_list(
-            "document_number", flat=True
-        )
+        document_number__in=Truth.objects.values_list("document_number", flat=True)
     )
     return relevant_documents
 
@@ -56,9 +52,7 @@ def get_pages_for_documents(vessel: Vessel) -> list:
         relevant_pages.extend(pages)
 
     # Sample 100 pages with seed 42 on sorted list
-    relevant_pages = sorted(
-        relevant_pages, key=lambda x: x.document.document_number
-    )
+    relevant_pages = sorted(relevant_pages, key=lambda x: x.document.document_number)
     random.seed(42)
     relevant_pages = random.sample(
         relevant_pages,

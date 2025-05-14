@@ -79,7 +79,7 @@ def documents(request):
     selected_vessel_names = list(
         vessels_qs.filter(id__in=selected_vessels).values_list(
             "name", flat=True
-        )
+        )  # noqa E501
     )
     documents = Document.objects.all()
     if selected_vessels:

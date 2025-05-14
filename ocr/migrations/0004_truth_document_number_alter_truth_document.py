@@ -7,19 +7,24 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0003_remove_document_file_path_remove_page_img_path_and_more'),
+        ("ocr", "0003_remove_document_file_path_remove_page_img_path_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='truth',
-            name='document_number',
+            model_name="truth",
+            name="document_number",
             field=models.CharField(default=0, max_length=255),
             preserve_default=False,
         ),
         migrations.AlterField(
-            model_name='truth',
-            name='document',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='truths', to='ocr.document'),
+            model_name="truth",
+            name="document",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="truths",
+                to="ocr.document",
+            ),
         ),
     ]

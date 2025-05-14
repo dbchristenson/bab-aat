@@ -6,28 +6,28 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0002_vessel_alter_document_vessel'),
+        ("ocr", "0002_vessel_alter_document_vessel"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='document',
-            name='file_path',
+            model_name="document",
+            name="file_path",
         ),
         migrations.RemoveField(
-            model_name='page',
-            name='img_path',
+            model_name="page",
+            name="img_path",
         ),
         migrations.AddField(
-            model_name='document',
-            name='file',
-            field=models.FileField(default=None, upload_to='documents/'),
+            model_name="document",
+            name="file",
+            field=models.FileField(default=None, upload_to="documents/"),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='page',
-            name='image',
-            field=models.ImageField(default='na', upload_to='pages/'),
+            model_name="page",
+            name="image",
+            field=models.ImageField(default="na", upload_to="pages/"),
             preserve_default=False,
         ),
     ]

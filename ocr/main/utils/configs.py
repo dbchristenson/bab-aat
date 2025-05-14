@@ -23,5 +23,5 @@ def with_config(func):
 
 def load_config(config_path):
     """Load a JSON config file."""
-    with open(config_path, 'r') as f:
+    with open(config_path, "r") as f:
         return json.load(f)

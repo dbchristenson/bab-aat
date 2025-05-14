@@ -16,14 +16,10 @@ def get_kraken_with_truth():
 
     relevant_documents = Document.objects.filter(
         vessel_id=1,
-        document_number__in=Truth.objects.values_list(
-            "document_number", flat=True
-        ),
+        document_number__in=Truth.objects.values_list("document_number", flat=True),
     )
 
-    print(
-        f"Found {relevant_documents.count()} documents with truth associated."
-    )
+    print(f"Found {relevant_documents.count()} documents with truth associated.")
 
     return relevant_documents
 

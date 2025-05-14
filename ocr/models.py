@@ -54,7 +54,6 @@ class Page(models.Model):
     Params:
         document (Document): The document to which this page belongs.
         page_number (int): The page number of the document (0-indexed).
-        img_path (str): The path to the image file of the page.
         created_at (datetime): The date when the page was created.
     """
 
@@ -62,7 +61,6 @@ class Page(models.Model):
         Document, related_name="pages", on_delete=models.CASCADE
     )
     page_number = models.IntegerField()  # 0-indexed
-    image = models.ImageField(upload_to="pages/")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
