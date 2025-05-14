@@ -1,14 +1,12 @@
 import logging
 import os
 import shutil
-import uuid
 import zipfile
 
 from django.core.files import File
 
 from babaatsite.settings import MEDIA_ROOT
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Vessel
 from ocr.tasks import process_pdf_task
 
 basic_logging(__name__)
@@ -84,7 +82,37 @@ def _collect_pdfs(directory_path):
     return pdfs
 
 
-def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
+def _chunk_and_dispatch_tasks(
+    items: list,
+    task_to_run: callable,
+    chunk_size: int,
+    *task_args,
+    **task_kwargs,
+) -> list:
+    """
+    Dispatches tasks in chunks to avoid broker overload.
+
+    Args:
+        items (list): A list of items to process (e.g., file paths).
+        task_to_run (callable): The Celery task function to call.
+        chunk_size (int): The number of items to process in each chunk.
+        *task_args: Positional arguments to pass to the task function.
+        **task_kwargs: Keyword arguments to pass to the task function.
+
+    Returns:
+        list: A list of task IDs for the dispatched tasks.
+    """
+    all_task_ids = []
+    for i in range(0, len(items), chunk_size):
+        chunk = items[i : i + chunk_size]  # noqa 203
+        for item in chunk:
+            # The task_to_run is expected to take the item as its first arg
+            tid = task_to_run(item, *task_args, **task_kwargs)
+            all_task_ids.append(tid)
+    return all_task_ids
+
+
+def handle_uploaded_file(django_file: File, vessel_id: int) -> None:
     """
     Handle the uploaded file. This function processes the uploaded file,
     which may be a pdf or a zip file. From a pdf, it creates a document
@@ -98,14 +126,11 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
         file (File): The uploaded file.
         vessel_id (int): The ID of the vessel associated with the document.
     """
-    vessel_obj = Vessel.objects.filter(name=vessel_name).first()
-    vessel_id = vessel_obj.id
-
     upload_directory = os.path.join(MEDIA_ROOT, "documents")
     os.makedirs(upload_directory, exist_ok=True)
 
     # Persist the raw upload to disk
-    unique_filename = f"{uuid.uuid4().hex}_{django_file.name}"
+    unique_filename = f"{django_file.name}"
     disk_path = os.path.join(upload_directory, unique_filename)
     _save_in_chunks(django_file, disk_path)
 
@@ -116,21 +141,17 @@ def handle_uploaded_file(django_file: File, vessel_name: str) -> None:
         logging.info(f"PDF path: {pdf_paths}")
     else:
         # unzip then collect PDFs
-        extract_dir = os.path.splitext(disk_path)[0]
-        os.makedirs(extract_dir, exist_ok=True)
-        with zipfile.ZipFile(disk_path, "r") as zf:
-            zf.extractall(extract_dir)
-        os.remove(disk_path)
+        extract_dir = unzip_file(disk_path)
         pdf_paths = _collect_pdfs(extract_dir)
 
     # Chunk list to avoid broker overload
-    chunk_size = 20
-    task_ids = []
-    for i in range(0, len(pdf_paths), chunk_size):
-        chunk = pdf_paths[i : i + chunk_size]  # noqa 203
-        for pdf_path in chunk:
-            tid = process_pdf_task.delay(pdf_path, vessel_id)
-            task_ids.append(tid)
+    CHUNK_SIZE = 20
+    task_ids = _chunk_and_dispatch_tasks(
+        pdf_paths,
+        process_pdf_task.delay,
+        CHUNK_SIZE,
+        vessel_id=vessel_id,
+    )
 
     return task_ids
 

@@ -101,6 +101,7 @@ def analyze_document(
     """
 
     document = Document.objects.get(id=document_id)
+    document_file_path = document.file.path
 
     all_detections = []
 
