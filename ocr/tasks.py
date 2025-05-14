@@ -5,9 +5,9 @@ from celery import shared_task
 from django.core.files import File
 from django.db import IntegrityError
 
-from ocr.main.intake.pdf_img_pipeline import save_document
+from ocr.main.intake.document_ingestion import save_document
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Document, Vessel
+from ocr.models import Vessel
 
 basic_logging(__name__)
 

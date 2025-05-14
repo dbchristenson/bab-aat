@@ -77,7 +77,9 @@ def documents(request):
     selected_vessels = request.GET.getlist("vessels")
     vessels_qs = Vessel.objects.all()
     selected_vessel_names = list(
-        vessels_qs.filter(id__in=selected_vessels).values_list("name", flat=True)
+        vessels_qs.filter(id__in=selected_vessels).values_list(
+            "name", flat=True
+        )  # noqa E501
     )
     documents = Document.objects.all()
     if selected_vessels:
@@ -157,7 +159,9 @@ def document_detail(request, document_id):
         dets = Detection.objects.filter(page=p, config=config)
         page_detections.append((p, dets))
 
-    associated_truths = Truth.objects.filter(document_number=document.document_number)
+    associated_truths = Truth.objects.filter(
+        document_number=document.document_number
+    )
     if associated_truths.exists():
         truths = associated_truths.values_list("text", flat=True)
     else:

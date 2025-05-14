@@ -80,7 +80,9 @@ class Detection(models.Model):
         created_at (datetime): The date when the detection was created.
     """
 
-    page = models.ForeignKey(Page, related_name="detections", on_delete=models.CASCADE)
+    page = models.ForeignKey(
+        Page, related_name="detections", on_delete=models.CASCADE
+    )
     text = models.CharField(max_length=255)
     bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
     confidence = models.FloatField()
@@ -119,7 +121,9 @@ class Tag(models.Model):
     )
     page_number = models.IntegerField()  # 0-indexed
     text = models.CharField(max_length=255)
-    bbox = models.JSONField(help_text="Polygon coords [[x1,y1],…] of the merged shape")
+    bbox = models.JSONField(
+        help_text="Polygon coords [[x1,y1],…] of the merged shape"
+    )
     algorithm = models.CharField(
         max_length=100,
         null=True,
