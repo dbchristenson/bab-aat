@@ -2,17 +2,14 @@ import argparse
 import datetime as dt
 import logging
 import os
-from pathlib import Path
 
 import pypdfium2 as pdfium
 from django.core.files import File
-from django.core.files.base import ContentFile
-from django.db.models import Count, Q
+from django.db.models import Q
 
 from babaatsite.settings import BASE_DIR
 from ocr.main.utils.configs import with_config
 from ocr.main.utils.loggers import basic_logging
-from ocr.main.utils.page_to_img import create_img_and_pad_divisible_by_32
 from ocr.models import Detection, Document, Page, Vessel
 
 # Setup logging
@@ -71,9 +68,6 @@ def save_document(file: File, vessel: Vessel) -> int | None:
 
     if existing_doc_qs.exists():
         existing_doc = existing_doc_qs.first()
-        # Compare file metadata; note that last_modified here is newly
-        # generated, so if you need a more accurate check, you might
-        # need to store the original mod time.
         size_change = existing_doc.file_size != file_size
         modified_change = existing_doc.last_modified != last_modified
         if size_change or modified_change:
@@ -174,9 +168,9 @@ def get_pdf_paths(
     return full_pdf_paths
 
 
-def check_already_converted(pdf_path: str) -> bool:
+def _check_already_converted(pdf_path: str) -> bool:
     """
-    Check if a PDF has already been fully processed for OCR based on Detections.
+    Check if a PDF has already been processed for OCR based on Detections.
 
     Args:
         pdf_path: Path to the PDF file to check
@@ -193,7 +187,7 @@ def check_already_converted(pdf_path: str) -> bool:
     doc_instance = doc_qs.first()
 
     # Count distinct page numbers for which detections exist for this document
-    # This assumes Detections are linked to Page, and Page is linked to Document
+    # Assumes Detections are linked to Page, and Page is linked to Document
     detected_pages_count = (
         Page.objects.filter(document=doc_instance, detections__isnull=False)
         .distinct()
@@ -206,7 +200,9 @@ def check_already_converted(pdf_path: str) -> bool:
         pdf.close()
         return detected_pages_count == num_pages
     except Exception as e:
-        logging.error(f"Could not open PDF {pdf_path} for page count verification: {e}")
+        logging.error(
+            f"Could not open PDF {pdf_path} for page count verification: {e}"
+        )
         return False
 
 
@@ -227,26 +223,6 @@ def convert_and_ocr(
         supabase_client: Optional Supabase client (currently unused).
         scale (int): Scaling factor for image rendering (default: 4).
     """
-
-    # Placeholder for the actual OCR function
-    # This function should return a list of detection dictionaries.
-    # Each dictionary should have 'text', 'bbox', 'confidence'.
-    def run_ocr_on_pil_image(pil_img):
-        logging.warning("Using placeholder OCR function. No actual OCR performed.")
-        # Example structure for a detection result:
-        return [
-            {
-                "text": f"Placeholder OCR text for page area 1 (size: {pil_img.width}x{pil_img.height})",
-                "bbox": [
-                    [0, 0],
-                    [pil_img.width, 0],
-                    [pil_img.width, pil_img.height],
-                    [0, pil_img.height],
-                ],  # Placeholder bbox
-                "confidence": 0.95,  # Placeholder confidence
-            }
-        ]
-
     try:
         if hasattr(input_data, "seek"):
             input_data.seek(0)
@@ -282,7 +258,8 @@ def convert_and_ocr(
                 config="placeholder_ocr_v1",  # Placeholder config
             )
         logging.info(
-            f"Page {page_number} of {parent_doc.name} OCR'd and {len(detection_results)} Detections saved."
+            f"=== Page {page_number} of {parent_doc.name} OCR'd and "
+            f"{len(detection_results)} Detections saved. ==="
         )
 
     pdf.close()
@@ -301,8 +278,10 @@ def convert_pdfs(pdf_paths: list[str], scale: int = 4):
         database when trying to convert it
     """
     for path in pdf_paths:
-        if check_already_converted(path):
-            logging.info(f"{path} has already been processed for OCR. Skipping.")
+        if _check_already_converted(path):
+            logging.info(
+                f"{path} has already been processed for OCR. Skipping."
+            )
             continue
 
         file_name = os.path.basename(path)
