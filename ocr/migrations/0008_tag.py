@@ -7,21 +7,62 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0007_rename_experiment_detection_config'),
+        ("ocr", "0007_rename_experiment_detection_config"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Tag',
+            name="Tag",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('text', models.CharField(max_length=255)),
-                ('bbox', models.JSONField(help_text='Polygon coords [[x1,y1],…] of the merged shape')),
-                ('algorithm', models.CharField(help_text="e.g. 'circle_hough', 'dbscan', 'proximity_merge'", max_length=100, null=True)),
-                ('confidence', models.FloatField(help_text='Minimum confidence of the detections used in this tag', null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('detections', models.ManyToManyField(help_text='Raw OCR lines used to build this tag', related_name='tags', to='ocr.detection')),
-                ('document', models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, related_name='tags', to='ocr.document')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("text", models.CharField(max_length=255)),
+                (
+                    "bbox",
+                    models.JSONField(
+                        help_text="Polygon coords [[x1,y1],…] of the merged shape"
+                    ),
+                ),
+                (
+                    "algorithm",
+                    models.CharField(
+                        help_text="e.g. 'circle_hough', 'dbscan', 'proximity_merge'",
+                        max_length=100,
+                        null=True,
+                    ),
+                ),
+                (
+                    "confidence",
+                    models.FloatField(
+                        help_text="Minimum confidence of the detections used in this tag",
+                        null=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "detections",
+                    models.ManyToManyField(
+                        help_text="Raw OCR lines used to build this tag",
+                        related_name="tags",
+                        to="ocr.detection",
+                    ),
+                ),
+                (
+                    "document",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="tags",
+                        to="ocr.document",
+                    ),
+                ),
             ],
         ),
     ]

@@ -47,9 +47,7 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
     new_df = new_df.dropna()
 
     # Remove rows with UNTAGGED in the tag_number string
-    new_df = new_df[
-        new_df["tag_number"].str.contains("UNTAGGED") == False  # noqa E712
-    ]
+    new_df = new_df[new_df["tag_number"].str.contains("UNTAGGED") == False]  # noqa E712
 
     return new_df
 

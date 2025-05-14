@@ -51,9 +51,7 @@ def get_page_detections(
     ocr_results = ocr.ocr(page.image.path, cls=True, bin=True)
     lines = ocr_results[0]
 
-    logging.info(
-        f"[{param_config}] Detected {len(lines)} lines on page {page.id}"
-    )
+    logging.info(f"[{param_config}] Detected {len(lines)} lines on page {page.id}")
 
     # Extract bounding boxes, confidence scores, and text from OCR results
     detections: list[Detection] = []

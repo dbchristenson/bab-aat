@@ -133,9 +133,7 @@ def load_network(config_file, data_file, weights, batch_size=1):
         config_file.encode("ascii"), weights.encode("ascii"), 0, batch_size
     )
     metadata = load_meta(data_file.encode("ascii"))
-    class_names = [
-        metadata.names[i].decode("ascii") for i in range(metadata.classes)
-    ]
+    class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
     colors = class_colors(class_names)
     return network, class_names, colors
 
@@ -263,9 +261,7 @@ def remove_negatives_faster(detections, class_names, num):
     return predictions
 
 
-def detect_image(
-    network, class_names, image, thresh=0.5, hier_thresh=0.5, nms=0.45
-):
+def detect_image(network, class_names, image, thresh=0.5, hier_thresh=0.5, nms=0.45):
     """
     Returns a list with highest confidence class and their bbox
     """

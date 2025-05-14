@@ -59,9 +59,7 @@ def get_detections(document_ids: list[int]) -> list[dict]:
     return
 
 
-def _save_in_chunks(
-    django_file: File, dest_path: str, chunk_size: int = 64 * 1024
-):
+def _save_in_chunks(django_file: File, dest_path: str, chunk_size: int = 64 * 1024):
     """
     Write an uploaded file to disk in chunks to avoid large memory usage.
     """

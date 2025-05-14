@@ -49,7 +49,7 @@ STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
     "default": {
-        "BACKEND": "ocr.storages.SmallFileS3Storage",
+        "BACKEND": "ocr.storages.MultipartOnlyS3Storage",
         "OPTIONS": {
             "bucket_name": S3.get("bucketname", "media"),
             "access_key": S3.get("accesskey"),
@@ -185,8 +185,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
 CELERY_BROKER_URL = REDIS.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = REDIS.get(
-    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
-)
+CELERY_RESULT_BACKEND = REDIS.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_RESULT_EXPIRES = 30 * 60  # 30 minutes

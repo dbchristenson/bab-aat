@@ -6,15 +6,14 @@ from pathlib import Path
 
 import pypdfium2 as pdfium
 from django.core.files import File
-
-# new imports
-from django.db.models import Q
+from django.core.files.base import ContentFile
+from django.db.models import Count, Q
 
 from babaatsite.settings import BASE_DIR
 from ocr.main.utils.configs import with_config
 from ocr.main.utils.loggers import basic_logging
 from ocr.main.utils.page_to_img import create_img_and_pad_divisible_by_32
-from ocr.models import Document, Page, Vessel
+from ocr.models import Detection, Document, Page, Vessel
 
 # Setup logging
 basic_logging("pdf_img_pipeline")
@@ -177,107 +176,124 @@ def get_pdf_paths(
 
 def check_already_converted(pdf_path: str) -> bool:
     """
-    Check if a PDF has already been fully converted to images.
+    Check if a PDF has already been fully processed for OCR based on Detections.
 
     Args:
         pdf_path: Path to the PDF file to check
 
     Returns:
-        bool: True if all pages are already converted and in database,
-              False otherwise
+        bool: True if all pages have Detections, False otherwise
     """
     file_name = os.path.basename(pdf_path)
-    doc = Document.objects.filter(Document.name == file_name)
+    doc_qs = Document.objects.filter(name=file_name)
 
-    if not doc:
+    if not doc_qs.exists():
         return False
 
-    page_count = Page.objects.filter(Page.document == doc).count()
+    doc_instance = doc_qs.first()
+
+    # Count distinct page numbers for which detections exist for this document
+    # This assumes Detections are linked to Page, and Page is linked to Document
+    detected_pages_count = (
+        Page.objects.filter(document=doc_instance, detections__isnull=False)
+        .distinct()
+        .count()
+    )
 
     try:
         pdf = pdfium.PdfDocument(pdf_path)
         num_pages = len(pdf)
         pdf.close()
-        return page_count == num_pages
+        return detected_pages_count == num_pages
     except Exception as e:
-        logging.error(
-            f"Could not open PDF {pdf_path} for page count verification: {e}"
-        )
+        logging.error(f"Could not open PDF {pdf_path} for page count verification: {e}")
         return False
 
 
-def save_img_to_db(parent_doc: Document, page_num: int, img_path: str) -> None:
-    """
-    Saves the image file to the database by creating a Page record using the
-    image field from the Page model. The image file is opened, wrapped in a
-    Django File object, and passed to the ImageField.
-
-    Args:
-        parent_doc (Document): The Document object associated with the PDF.
-        page_num (int): The page number (0-indexed) of the PDF being processed.
-        img_path (str): The filesystem path to the image file to save.
-
-    Raises:
-        IntegrityError: If database constraints are violated during creation.
-    """
-    page = Page(document=parent_doc, page_number=page_num)
-
-    # This will invoke your SmallFileS3Storage._save() path:
-    with open(img_path, "rb") as f:
-        page.image.save(
-            Path(img_path).name,  # e.g. "21020-…_0.png"
-            File(f),  # raw, local PNG bytes
-            save=True,
-        )
-
-
-def convert_pdf(
+def convert_and_ocr(
     input_data,  # Accepts str | pathlib.Path | bytes | BinaryIO etc.
     parent_doc: Document,
-    output_dir: str,
+    supabase_client=None,
     scale: int = 4,
 ) -> None:
     """
-    Convert a single PDF to images while tracking state in the database.
+    Convert a single PDF to images in memory, run OCR, and save text results
+    as Detection records.
 
     Args:
         input_data (str | pathlib.Path | bytes | typing.BinaryIO):
             The PDF input as a file path, bytes, or any file-like object.
         parent_doc (Document): Document object for the parent PDF.
-        output_dir (str): Directory to save converted images.
-        scale (int): Scaling factor for image conversion (default: 4).
+        supabase_client: Optional Supabase client (currently unused).
+        scale (int): Scaling factor for image rendering (default: 4).
     """
-    # Derive file_name and base_name from the Document instance
-    file_name = parent_doc.name
-    base_name = os.path.splitext(file_name)[0]
 
-    # If input_data is a file-like object, ensure the pointer is at the beginning.  # noqa 501
+    # Placeholder for the actual OCR function
+    # This function should return a list of detection dictionaries.
+    # Each dictionary should have 'text', 'bbox', 'confidence'.
+    def run_ocr_on_pil_image(pil_img):
+        logging.warning("Using placeholder OCR function. No actual OCR performed.")
+        # Example structure for a detection result:
+        return [
+            {
+                "text": f"Placeholder OCR text for page area 1 (size: {pil_img.width}x{pil_img.height})",
+                "bbox": [
+                    [0, 0],
+                    [pil_img.width, 0],
+                    [pil_img.width, pil_img.height],
+                    [0, pil_img.height],
+                ],  # Placeholder bbox
+                "confidence": 0.95,  # Placeholder confidence
+            }
+        ]
+
     try:
-        input_data.seek(0)
+        if hasattr(input_data, "seek"):
+            input_data.seek(0)
     except Exception:
         pass
 
     pdf = pdfium.PdfDocument(input_data)
 
     for i in range(len(pdf)):
-        page = pdf[i]
-        img = create_img_and_pad_divisible_by_32(page, scale=scale)
-        new_name = f"{base_name}_{i}.png"
-        new_path = os.path.join(output_dir, new_name)
-        img.save(new_path)
-        logging.info(f"Page {i} of {file_name} saved as image.")
-        save_img_to_db(parent_doc, i, new_path)
+        page_number = i
+
+        # Get or create the Page instance
+        page_instance, created = Page.objects.get_or_create(
+            document=parent_doc, page_number=page_number
+        )
+        if created:
+            logging.info(
+                f"Created Page object for {parent_doc.name}, page {page_number}"
+            )
+
+        pil_image = pdf[i].render(scale=scale)
+
+        detection_results = run_ocr_on_pil_image(pil_image)
+
+        for det_result in detection_results:
+            Detection.objects.create(
+                page=page_instance,
+                text=det_result.get("text", ""),
+                bbox=det_result.get(
+                    "bbox", [[0, 0], [0, 0], [0, 0], [0, 0]]
+                ),  # Default empty bbox
+                confidence=det_result.get("confidence", 0.0),
+                config="placeholder_ocr_v1",  # Placeholder config
+            )
+        logging.info(
+            f"Page {page_number} of {parent_doc.name} OCR'd and {len(detection_results)} Detections saved."
+        )
 
     pdf.close()
 
 
-def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
+def convert_pdfs(pdf_paths: list[str], scale: int = 4):
     """
     Convert PDFs to images while tracking state in database.
 
     Args:
         pdf_paths: List of PDF file paths to convert
-        output_dir: Directory to save converted images
         scale: Scaling factor for image conversion (default: 4)
 
     Raises:
@@ -286,23 +302,20 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
     """
     for path in pdf_paths:
         if check_already_converted(path):
-            logging.info(f"{path} has already been converted. Skipping.")
+            logging.info(f"{path} has already been processed for OCR. Skipping.")
             continue
 
         file_name = os.path.basename(path)
-        base_name = os.path.splitext(file_name)[0]
 
         try:
-            parent_doc = Document.objects.get(Document.name == file_name)
-            convert_pdf(
-                path, parent_doc, base_name, file_name, output_dir, scale=scale
-            )
+            parent_doc = Document.objects.get(name=file_name)
+            convert_and_ocr(path, parent_doc, scale=scale)
         except Document.DoesNotExist:
             logging.error(f"Document {file_name} not found in database.")
-            raise ValueError(f"Document {file_name} not found in database.")
+            continue
 
         except Exception as e:
-            logging.error(f"Failed to convert {file_name}: {e}")
+            logging.error(f"Failed to process {file_name} for OCR: {e}")
             continue
 
     return
@@ -311,14 +324,12 @@ def convert_pdfs(pdf_paths: list[str], output_dir: str, scale: int = 4):
 @with_config
 def main_pipeline(config=None):
     pdf_dir = config.get("pdf_dir")
-    output_dir = config.get("output_dir")
     scale = config.get("scale")
     absolute_path = config.get("absolute_path")
     max_depth = config.get("max_depth")
     min_file_size = config.get("min_file_size_kb") * 1024
     max_file_size = config.get("max_file_size_kb") * 1024
 
-    os.makedirs(output_dir, exist_ok=True)
     pdf_paths = get_pdf_paths(
         pdf_dir,
         absolute_path=absolute_path,
@@ -326,14 +337,13 @@ def main_pipeline(config=None):
         min_file_size=min_file_size,
         max_file_size=max_file_size,
     )
-    convert_pdfs(pdf_paths, output_dir, scale=scale)
+    convert_pdfs(pdf_paths, scale=scale)
 
-    logging.info("PDFs converted to images.")
+    logging.info("PDFs processed for OCR.")
 
     return
 
 
-# /olombendo_src/original_no_ocr/P&ID/Process/
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process PDFs to images.")
     parser.add_argument(

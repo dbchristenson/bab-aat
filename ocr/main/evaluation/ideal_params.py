@@ -42,14 +42,10 @@ def run_experiment(config_path: str, device_id: int = None):
     logging.info(f"[{cfg_name}] OCR configured, now running detections")
 
     saved_cfg_name = "-".join(cfg_name.split("-")[:-1]) + ".json"
-    logging.info(
-        f"[{cfg_name}] looking for cached experiment name: '{saved_cfg_name}'"
-    )
+    logging.info(f"[{cfg_name}] looking for cached experiment name: '{saved_cfg_name}'")
 
     # 1) find all document_numbers that have at least one Truth
-    doc_nums = list(
-        Truth.objects.values_list("document_number", flat=True).distinct()
-    )
+    doc_nums = list(Truth.objects.values_list("document_number", flat=True).distinct())
     docs = Document.objects.filter(document_number__in=doc_nums)
     logging.info(f"[{cfg_name}] Found {len(doc_nums)} documents")
 
@@ -80,9 +76,9 @@ def run_experiment(config_path: str, device_id: int = None):
 
         # b) get all truths for this doc
         truths = list(
-            Truth.objects.filter(
-                document_number=doc.document_number
-            ).values_list("text", flat=True)
+            Truth.objects.filter(document_number=doc.document_number).values_list(
+                "text", flat=True
+            )
         )
         if not truths:
             # no ground truth; skip
@@ -95,13 +91,9 @@ def run_experiment(config_path: str, device_id: int = None):
         per_doc_scores[doc.document_number] = recall
 
     # 3) overall average recall
-    avg_recall = (
-        sum(per_doc_recalls) / len(per_doc_recalls) if per_doc_recalls else 0.0
-    )
+    avg_recall = sum(per_doc_recalls) / len(per_doc_recalls) if per_doc_recalls else 0.0
 
-    logging.info(
-        f"[{cfg_name}] Finished detections, avg recall={avg_recall:.3f}"
-    )
+    logging.info(f"[{cfg_name}] Finished detections, avg recall={avg_recall:.3f}")
 
     return cfg_name, avg_recall, per_doc_scores
 
@@ -134,9 +126,7 @@ def main():
     # Only select configs whose name appears in the list below
     all_configs = glob(os.path.join(args.config_dir, "*.json"))
     configs = [
-        cfg
-        for cfg in all_configs
-        if "params.json" in os.path.basename(cfg).split("-")
+        cfg for cfg in all_configs if "params.json" in os.path.basename(cfg).split("-")
     ]
 
     device_ids = list(range(args.gpus))
@@ -146,9 +136,7 @@ def main():
 
     with ProcessPoolExecutor(max_workers=args.gpus) as executor:
         futures = {
-            executor.submit(
-                run_experiment, cfg, device_ids[i % len(device_ids)]
-            ): cfg
+            executor.submit(run_experiment, cfg, device_ids[i % len(device_ids)]): cfg
             for i, cfg in enumerate(configs[: args.maxexperiments])
         }
 

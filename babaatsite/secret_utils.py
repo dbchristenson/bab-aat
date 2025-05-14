@@ -46,9 +46,7 @@ def get_secret_group(group: str, base_dir: str = SECRETS_BASE_DIR) -> Any:
         return _parse_value(raw)
 
     # Not found
-    raise FileNotFoundError(
-        f"Secret '{group}' not found in env or at {file_path}"
-    )
+    raise FileNotFoundError(f"Secret '{group}' not found in env or at {file_path}")
 
 
 def load_all_secrets(base_dir: str = SECRETS_BASE_DIR) -> Dict[str, Any]:

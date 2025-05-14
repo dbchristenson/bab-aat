@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('ocr', '0005_detection_experiment'),
+        ("ocr", "0005_detection_experiment"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='detection',
-            name='bbox',
+            model_name="detection",
+            name="bbox",
             field=models.JSONField(default=0),
             preserve_default=False,
         ),

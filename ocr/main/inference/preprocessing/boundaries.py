@@ -18,9 +18,7 @@ def _get_image_dimensions(img: np.ndarray) -> tuple[int, int]:
     elif img.ndim == 3:  # Color
         h_img, w_img, _ = img.shape
     else:
-        raise ValueError(
-            f"Unsupported image dimensions: {img.ndim}. Expected 2 or 3."
-        )
+        raise ValueError(f"Unsupported image dimensions: {img.ndim}. Expected 2 or 3.")
     return h_img, w_img
 
 
@@ -105,9 +103,7 @@ def _identify_primary_candidates(
     if len(valid_contours_data) == 1:
         return valid_contours_data  # Only one candidate
 
-    primary_candidates.append(
-        valid_contours_data[0]
-    )  # Add the largest unconditionally
+    primary_candidates.append(valid_contours_data[0])  # Add the largest unconditionally
 
     for i in range(len(valid_contours_data) - 1):
         current_area = valid_contours_data[i]["area"]
@@ -213,9 +209,7 @@ def _figure_extraction(img: np.ndarray, **kwargs):
         all_contours=contours,
         img=img,
         min_area_ratio=kwargs.get("min_area_ratio", 0.01),  # 1% min area
-        edge_margin_ratio=kwargs.get(
-            "edge_margin_ratio", 0.005
-        ),  # 0.1% edge margin
+        edge_margin_ratio=kwargs.get("edge_margin_ratio", 0.005),  # 0.1% edge margin
         area_drop_off_ratio=kwargs.get(
             "area_drop_off_ratio", 1.75
         ),  # Drop-off if area ratio > 1.75
@@ -303,9 +297,7 @@ def find_significant_inner_boundary(
 
     logging.debug(f"Image Dimensions (HxW): {h_img} x {w_img}")
 
-    min_area_thresh = _calculate_min_area_threshold(
-        h_img, w_img, min_area_ratio
-    )
+    min_area_thresh = _calculate_min_area_threshold(h_img, w_img, min_area_ratio)
     logging.debug(
         f"Min Area Threshold ({min_area_ratio*100:.2f}% of total): {min_area_thresh:.2f}"  # noqa: E501
     )
@@ -326,9 +318,7 @@ def find_significant_inner_boundary(
     )
 
     if not valid_contours_data:
-        logging.warning(
-            "Warning: No valid contours remaining after initial filtering."
-        )
+        logging.warning("Warning: No valid contours remaining after initial filtering.")
         return []
 
     # Identify primary candidates based on area drop-off
@@ -339,9 +329,7 @@ def find_significant_inner_boundary(
     primary_candidates_data = _identify_primary_candidates(
         valid_contours_data, area_drop_off_ratio
     )
-    logging.debug(
-        f"Identified {len(primary_candidates_data)} primary candidates."
-    )
+    logging.debug(f"Identified {len(primary_candidates_data)} primary candidates.")
 
     if not primary_candidates_data:
         logging.warning("Warning: No primary candidates identified.")
