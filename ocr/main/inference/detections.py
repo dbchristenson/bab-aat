@@ -1,10 +1,16 @@
 import logging
 
+import numpy as np
 from paddleocr import PaddleOCR
+from pypdfium2 import PdfDocument
 
+from ocr.main.inference.preprocessing.boundaries import figure_table_extraction
 from ocr.main.utils.configs import with_config
-from ocr.main.utils.extract_ocr_results import get_bbox  # noqa: E501
-from ocr.main.utils.extract_ocr_results import get_confidence, get_ocr
+from ocr.main.utils.extract_ocr_results import (
+    get_bbox,
+    get_confidence,
+    get_ocr,
+)
 from ocr.main.utils.loggers import setup_logging
 from ocr.models import Detection, Document, Page
 
@@ -12,12 +18,15 @@ setup_logging(logger_name="detections")
 
 
 @with_config
-def config_ocr(config=None):
+def _config_ocr(config=None):
     """
     Configure the OCR network.
 
     Args:
         config (dict): Configuration dictionary for the OCR network.
+                       Expected to contain 'paddle' settings and potentially
+                       'preprocessing' settings like 'page_render_scale',
+                       'figure_extraction_kwargs', 'table_extraction_kwargs'.
     """
     logging.info("Configuring OCR network...")
 
@@ -34,79 +43,145 @@ def config_ocr(config=None):
     return ocr
 
 
-def get_page_detections(
-    page: Page, ocr: PaddleOCR, param_config: str
+def _extract_detections_from_image(
+    image_np: np.ndarray, ocr: PaddleOCR, param_config: str, page_db_id: int
 ) -> list[Detection]:
     """
-    Get detections for a given page using the OCR network.
+    Get detections for a given image numpy array using the OCR network.
+    Detections are not saved to the database by this function.
 
     Args:
-        page (Page): The page object containing the image and metadata.
+        image_np (np.ndarray): The image numpy array to process.
         ocr (PaddleOCR): The configured OCR network.
+        param_config (str): The name of the param_config or model used.
+        page_db_id (int): The ID of the Page object this image belongs to.
 
     Returns:
-        list[Detection]: List of detection objects for the page.
+        list[Detection]: List of detection objects for the image.
     """
-    # Perform OCR on the page image
-    ocr_results = ocr.ocr(page.image.path, cls=True, bin=True)
+    # Perform OCR on the image
+    ocr_results = ocr.ocr(image_np, cls=True, bin=True)
+    if (
+        not ocr_results or not ocr_results[0]
+    ):  # Ensure results are not None or empty
+        logging.info(
+            f"[{param_config}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
+        )
+        return []
+
     lines = ocr_results[0]
 
     logging.info(
-        f"[{param_config}] Detected {len(lines)} lines on page {page.id}"
+        f"[{param_config}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
     )
 
-    # Extract bounding boxes, confidence scores, and text from OCR results
     detections: list[Detection] = []
-    for line in lines:
-        bbox = get_bbox(line)
-        confidence = get_confidence(line)
-        text = get_ocr(line)
+    for line_idx, line_data in enumerate(lines):
+        bbox = get_bbox(line_data)
+        confidence = get_confidence(line_data)
+        text = get_ocr(line_data)
 
         logging.debug(
-            f"[{param_config}] Detected text: {text}, bbox: {bbox}, confidence: {confidence}"  # noqa: E501
+            f"[{param_config}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
         )
 
         det = Detection(
-            page_id=page.id,
+            page_id=page_db_id,  # Use the passed page_db_id
             bbox=bbox,
             confidence=confidence,
             text=text,
             param_config=param_config,
         )
-
-        det.save()  # Save the detection to the database
-
         detections.append(det)
 
-    logging.info(f"[{param_config}] Saved detection for page {page.id}")
+    logging.info(
+        f"[{param_config}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
+    )
 
     return detections
 
 
-def analyze_document(
-    document_id: int, ocr: PaddleOCR, param_config: str
+def _save_adjusted_detections(
+    detections: list[Detection], offset_x: int, offset_y: int
 ) -> list[Detection]:
     """
-    Analyze a document by processing each page and extracting detections.
-    The returned detections are stored in the database, so you may throw
-    them away if you don't need them.
+    Adjusts the bbox coordinates of detections by an offset and saves them.
+
+    Args:
+        detections (list[Detection]): List of raw detection objects.
+        offset_x (int): The x-coordinate offset to add to bbox points.
+        offset_y (int): The y-coordinate offset to add to bbox points.
+
+    Returns:
+        list[Detection]: List of saved detection objects with adjusted bboxes.
+    """
+    saved_detections = []
+    for det in detections:
+        # Adjust bbox: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+        adjusted_bbox = [[p[0] + offset_x, p[1] + offset_y] for p in det.bbox]
+        det.bbox = adjusted_bbox
+        det.save()
+        saved_detections.append(det)
+        logging.debug(
+            f"[{det.param_config}] Saved detection ID {det.id} for page ID {det.page_id} with adjusted bbox: {det.bbox}"  # noqa E501
+        )
+    return saved_detections
+
+
+def _get_pdf_object(document_id: int) -> PdfDocument:
+    """
+    Get the PDF document object for a given document ID.
+
+    Args:
+        document_id (int): The ID of the document.
+
+    Returns:
+        PdfDocument: The PDF document object.
+    """
+    document = Document.objects.get(id=document_id)
+    document_file_path = document.file.path
+    pdf = PdfDocument(document_file_path)
+
+    return pdf
+
+
+def analyze_document(
+    document_id: int,
+    ocr: PaddleOCR,
+    param_config: str,
+    page_render_scale: float = 4.0,
+    figure_kwargs: dict = None,
+    table_kwargs: dict = None,
+) -> list[Detection]:
+    """
+    Analyze a document by processing each page, extracting figure and table
+    regions, performing OCR on these regions, and saving adjusted detections.
 
     Args:
         document_id (int): The ID of the document to analyze.
         ocr (PaddleOCR): The configured OCR network.
         param_config (str): The name of the param_config or model used.
+        page_render_scale (float): Scale factor for rendering pages to images.
+        figure_kwargs (dict, optional): Arguments for figure extraction.
+        table_kwargs (dict, optional): Arguments for table extraction.
 
     Returns:
-        list[Detection]: List of detection objects for the document.
+        list[Detection]: List of all saved detection objects for the document.
     """
+    if figure_kwargs is None:
+        figure_kwargs = {}
+    if table_kwargs is None:
+        table_kwargs = {}
 
-    document = Document.objects.get(id=document_id)
-    document_file_path = document.file.path
+    pdf = _get_pdf_object(document_id)
+    all_document_detections: list[Detection] = []
 
-    all_detections = []
+    for page_idx, page in enumerate(pdf):
+        page_number = page_idx + 1
+        logging.info(
+            f"[{param_config}] Processing page {page_number} for document {document_id}"  # noqa E501
+        )
 
-    for page in pages:
-        detections = get_page_detections(page, ocr, param_config)
-        all_detections.extend(detections)
+        figure_im, table_im = figure_table_extraction()
 
-    return all_detections
+    return all_document_detections
