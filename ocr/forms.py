@@ -116,13 +116,9 @@ class OCRConfigForm(forms.ModelForm):
     def clean_config(self):
         config_data = self.cleaned_data["config"]
         try:
-            # The model's JSONField handles string-to-dict conversion if it's a valid JSON string.
-            # If it's already a dict (e.g. from form resubmission), it's fine.
-            # Here, we just ensure it's valid JSON if it's a string.
             if isinstance(config_data, str):
                 json.loads(config_data)
             elif not isinstance(config_data, dict):
-                # This case should ideally not happen if Textarea provides a string
                 raise forms.ValidationError(
                     "Config must be a valid JSON string or a dictionary."
                 )

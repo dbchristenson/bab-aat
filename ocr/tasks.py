@@ -7,7 +7,6 @@ from django.db import IntegrityError
 
 from ocr.main.intake.document_ingestion import save_document
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Vessel
 
 basic_logging(__name__)
 
