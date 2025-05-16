@@ -15,8 +15,14 @@ urlpatterns = [
         name="document_detail",
     ),
     path(
-        "documents/delete/from_vessel/",
+        "documents/delete_from_vessel/",
         views.delete_documents_from_vessel,
         name="delete_documents_from_vessel",
+    ),
+    path("configs/create/", views.create_ocr_config, name="create_ocr_config"),
+    path(
+        "documents/<int:document_id>/get_detections/",
+        views.trigger_document_detections,
+        name="trigger_document_detections",
     ),
 ]

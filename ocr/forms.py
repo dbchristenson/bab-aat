@@ -1,3 +1,4 @@
+import json
 import logging
 
 import magic
@@ -5,7 +6,7 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Vessel
+from ocr.models import OCRConfig, Vessel
 
 basic_logging(__name__)
 
@@ -31,14 +32,18 @@ class UploadFileForm(forms.Form):
         ],
         max_length=100,
         required=True,
-        widget=forms.ClearableFileInput(attrs={"id": "id_file", "multiple": False}),
+        widget=forms.ClearableFileInput(
+            attrs={"id": "id_file", "multiple": False}
+        ),
     )
 
     def clean_file(self):
         # File validation
         file = self.cleaned_data.get("file")
         if not file:
-            raise forms.ValidationError("No file selected. Please select a file.")
+            raise forms.ValidationError(
+                "No file selected. Please select a file."
+            )
 
         # File size
         max_size = 2.5 * 1024 * 1024 * 1024  # 2.5 GB in bytes
@@ -56,7 +61,9 @@ class UploadFileForm(forms.Form):
 
         ext = file.name.split(".")[-1].lower()
         if ext not in allowed_exts:
-            logging.error(f"Invalid file extension: {ext}. Allowed: {allowed_exts}")
+            logging.error(
+                f"Invalid file extension: {ext}. Allowed: {allowed_exts}"
+            )
             raise forms.ValidationError(
                 "Invalid file type. Only PDF and ZIP files are allowed."
             )
@@ -90,3 +97,36 @@ class DeleteDocumentsFromVesselForm(forms.Form):
         required=True,
         help_text="Select the vessel associated with these documents",
     )
+
+
+class OCRConfigForm(forms.ModelForm):
+    class Meta:
+        model = OCRConfig
+        fields = ["name", "config"]
+        widgets = {
+            "config": forms.Textarea(
+                attrs={
+                    "rows": 10,
+                    "cols": 80,
+                    "placeholder": "Enter JSON config here",
+                }
+            ),
+        }
+
+    def clean_config(self):
+        config_data = self.cleaned_data["config"]
+        try:
+            # The model's JSONField handles string-to-dict conversion if it's a valid JSON string.
+            # If it's already a dict (e.g. from form resubmission), it's fine.
+            # Here, we just ensure it's valid JSON if it's a string.
+            if isinstance(config_data, str):
+                json.loads(config_data)
+            elif not isinstance(config_data, dict):
+                # This case should ideally not happen if Textarea provides a string
+                raise forms.ValidationError(
+                    "Config must be a valid JSON string or a dictionary."
+                )
+        except json.JSONDecodeError:
+            raise forms.ValidationError("Invalid JSON format.")
+        # The model field will store it as a Python dict.
+        return config_data

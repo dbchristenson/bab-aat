@@ -2,13 +2,19 @@ import logging
 
 from django.core.paginator import Paginator
 from django.http import HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
-from ocr.forms import DeleteDocumentsFromVesselForm, UploadFileForm
+from ocr.forms import (
+    DeleteDocumentsFromVesselForm,
+    OCRConfigForm,
+    UploadFileForm,
+)
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.draw_detections import draw_detections
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Detection, Document, Page, Truth, Vessel
+from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
+from ocr.tasks import get_document_detections as get_document_detections_task
 
 basic_logging(__name__)
 
@@ -148,34 +154,92 @@ def document_detail(request, document_id):
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
-    config = request.GET.get("config", None)
-    if config is None:
-        config = "production.json"
+    selected_config_id = request.GET.get("config_id", None)
+    all_configs = OCRConfig.objects.all().order_by("name")
+    selected_config = None
 
-    document = Document.objects.get(id=document_id)
+    if selected_config_id:
+        try:
+            selected_config = OCRConfig.objects.get(id=selected_config_id)
+        except OCRConfig.DoesNotExist:
+            logging.warning(f"Config with id {selected_config_id} not found.")
+            # Optionally, fall back to the first config or no config
+            if all_configs.exists():
+                selected_config = all_configs.first()
+    elif all_configs.exists():
+        selected_config = all_configs.first()
+
+    document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
     page_detections = []
-    for p in pages:
-        dets = Detection.objects.filter(page=p, config=config)
-        page_detections.append((p, dets))
+    if selected_config:
+        for p in pages:
+            dets = Detection.objects.filter(page=p, config=selected_config)
+            page_detections.append((p, dets))
 
     associated_truths = Truth.objects.filter(
         document_number=document.document_number
     )
-    if associated_truths.exists():
-        truths = associated_truths.values_list("text", flat=True)
-    else:
-        truths = None
+    truths_list = (
+        list(associated_truths.values_list("text", flat=True))
+        if associated_truths.exists()
+        else []
+    )
 
     context = {
         "document": document,
         "page_detections": page_detections,
-        "config": config,
-        "truths": truths,
+        "configs": all_configs,
+        "selected_config": selected_config,
+        "truths": truths_list,
         "vessel": document.vessel.name if document.vessel else None,
     }
     return render(request, "document_detail.html", context)
+
+
+def trigger_document_detections(request, document_id):
+    if request.method == "POST":
+        config_id = request.POST.get("config_id")
+        if not config_id:
+            # Handle error: config_id not provided
+            # Add a message or redirect with error
+            return redirect(
+                reverse("ocr:document_detail", args=[document_id])
+            )  # noqa E501
+
+        try:
+            # Ensure document and config exist
+            document = get_object_or_404(Document, id=document_id)
+            config = get_object_or_404(OCRConfig, id=config_id)
+
+            # Delete existing detections for this document and config
+            # Get all page IDs for the document
+            page_ids = Page.objects.filter(document=document).values_list(
+                "id", flat=True
+            )
+            Detection.objects.filter(
+                page_id__in=page_ids, config=config
+            ).delete()
+            logging.info(
+                f"Deleted existing detections for document {document.id} and config {config.name}"
+            )
+
+            get_document_detections_task.delay(document.id, config.id)
+            # Add a success message if desired
+            logging.info(
+                f"Triggered OCR task for document {document_id} with config {config_id}"
+            )  # noqa E501
+        except Exception as e:
+            logging.error(f"Error triggering OCR task: {e}")
+            # Add an error message
+
+        return redirect(
+            reverse("ocr:document_detail", args=[document_id])
+            + f"?config_id={config_id}"
+        )
+    # Should not be reached via GET, or handle appropriately
+    return redirect(reverse("ocr:document_detail", args=[document_id]))
 
 
 # DELETE
@@ -203,3 +267,19 @@ def delete_documents_from_vessel(request):
         form = DeleteDocumentsFromVesselForm()
 
     return render(request, "delete_documents_from_vessel.html", {"form": form})
+
+
+# OCR CONFIG
+# ------------------------------------------------------------------------------
+def create_ocr_config(request):
+    if request.method == "POST":
+        form = OCRConfigForm(request.POST)
+        if form.is_valid():
+            form.save()
+            # Add success message
+            return redirect(
+                "ocr:document_detail", document_id=1
+            )  # Redirect to a relevant page, e.g., first document or a config list page
+    else:
+        form = OCRConfigForm()
+    return render(request, "create_ocr_config.html", {"form": form})
