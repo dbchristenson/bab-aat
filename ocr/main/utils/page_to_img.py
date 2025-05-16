@@ -45,7 +45,9 @@ def create_img_and_pad_divisible_by_32(
 
     # Convert the bitmap to a PIL image and pad it
     img = bitmap.to_pil()
-    padded_img = ImageOps.expand(img, border=(0, 0, w_to_pad, h_to_pad), fill="black")
+    padded_img = ImageOps.expand(
+        img, border=(0, 0, w_to_pad, h_to_pad), fill="black"
+    )  # noqa E501
 
     page.close()
 

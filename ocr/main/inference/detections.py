@@ -12,6 +12,7 @@ from ocr.main.utils.extract_ocr_results import (
     get_ocr,
 )
 from ocr.main.utils.loggers import setup_logging
+from ocr.main.utils.page_to_img import rotate_landscape
 from ocr.models import Detection, Document, Page
 
 setup_logging(logger_name="detections")
@@ -176,12 +177,19 @@ def analyze_document(
     pdf = _get_pdf_object(document_id)
     all_document_detections: list[Detection] = []
 
-    for page_idx, page in enumerate(pdf):
+    for page_idx, page_obj in enumerate(pdf):
         page_number = page_idx + 1
         logging.info(
             f"[{param_config}] Processing page {page_number} for document {document_id}"  # noqa E501
         )
 
-        figure_im, table_im = figure_table_extraction()
+        page_obj = rotate_landscape(page_obj)
+        page_bitmap = page_obj.render(scale=page_render_scale)
+        page_im = page_bitmap.to_pil()
+
+        extraction_kwargs = {**figure_kwargs, **table_kwargs}
+        figure_im, table_im = figure_table_extraction(
+            page_im, extraction_kwargs
+        )
 
     return all_document_detections

@@ -453,15 +453,22 @@ def find_significant_inner_boundary(
     return figure_contour_list
 
 
-def figure_table_extraction(img: np.ndarray, **kwargs):
+def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
     """
     Takes an image path and returns the cropped figure and table images.
 
     Args:
-        img_path (str): Path to the image file.
+        img (PIL): Path to the image file.
         **kwargs: Additional arguments for figure and table extraction.
             - figure_kwargs (dict): Arguments for figure extraction.
             - table_kwargs (dict): Arguments for table extraction.
+
+    Returns:
+        tuple: A tuple containing:
+            - figure_crop (np.ndarray): Cropped figure image.
+            - table_crop (np.ndarray): Cropped table image.
+            - figure_offset (tuple[int, int]): Offset of the figure crop.
+            - table_offset (tuple[int, int]): Offset of the table crop.
     """
     if img is None or img.size == 0:
         logging.error("Input image is None or empty.")

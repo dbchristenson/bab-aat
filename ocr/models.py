@@ -67,6 +67,24 @@ class Page(models.Model):
         return f"{self.document.name} - Page {self.page_number}"
 
 
+class OCRConfig(models.Model):
+    """
+    Configuration parameters for the OCR engine.
+
+    Params:
+        name (str): The name of the configuration.
+        config (JSON): The configuration parameters in JSON format.
+        created_at (datetime): The date when the configuration was created.
+    """
+
+    name = models.CharField(max_length=255)
+    config = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Detection(models.Model):
     """
     A detection is a recognized text block on a page.
@@ -86,7 +104,7 @@ class Detection(models.Model):
     text = models.CharField(max_length=255)
     bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
     confidence = models.FloatField()
-    config = models.CharField(max_length=255, null=True)
+    config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

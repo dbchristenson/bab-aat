@@ -13,7 +13,6 @@ from ocr.models import Detection, Document, Page, Truth, Vessel
 basic_logging(__name__)
 
 
-# Create your views here.
 def index(request):
     """
     Render the index page.
