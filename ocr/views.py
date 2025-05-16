@@ -202,8 +202,6 @@ def trigger_document_detections(request, document_id):
     if request.method == "POST":
         config_id = request.POST.get("config_id")
         if not config_id:
-            # Handle error: config_id not provided
-            # Add a message or redirect with error
             return redirect(
                 reverse("ocr:document_detail", args=[document_id])
             )  # noqa E501
@@ -222,13 +220,13 @@ def trigger_document_detections(request, document_id):
                 page_id__in=page_ids, config=config
             ).delete()
             logging.info(
-                f"Deleted existing detections for document {document.id} and config {config.name}"
+                f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
             )
 
             get_document_detections_task.delay(document.id, config.id)
             # Add a success message if desired
             logging.info(
-                f"Triggered OCR task for document {document_id} with config {config_id}"
+                f"Triggered OCR task for document {document_id} with config {config_id}"  # noqa E501
             )  # noqa E501
         except Exception as e:
             logging.error(f"Error triggering OCR task: {e}")
@@ -278,8 +276,8 @@ def create_ocr_config(request):
             form.save()
             # Add success message
             return redirect(
-                "ocr:document_detail", document_id=1
-            )  # Redirect to a relevant page, e.g., first document or a config list page
+                "ocr:documents",
+            )  # Redirect to a relevant page
     else:
         form = OCRConfigForm()
     return render(request, "create_ocr_config.html", {"form": form})
