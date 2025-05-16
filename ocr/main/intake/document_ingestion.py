@@ -5,13 +5,13 @@ from django.core.files import File
 from django.db.models import Q
 
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import Document, Vessel
+from ocr.models import Document
 
 # Setup logging
 basic_logging("pdf_img_pipeline")
 
 
-def save_document(file: File, vessel: Vessel) -> int | None:
+def save_document(file: File, vessel_id: int) -> int | None:
     """
     Saves or updates a Document record in the database using an uploaded file
     and an associated Vessel. Checks for an existing document with the same
@@ -22,7 +22,7 @@ def save_document(file: File, vessel: Vessel) -> int | None:
 
     Args:
         file (File): The uploaded file object.
-        vessel (Vessel): The Vessel instance associated with the document.
+        vessel_id (int): The ID of the Vessel associated with the document.
 
     Returns:
         A list of integers representing the IDs of the saved or updated
@@ -50,7 +50,7 @@ def save_document(file: File, vessel: Vessel) -> int | None:
         document_number = document_number.split("_")[0]
 
     # Check if a document with the same vessel and file name or document number exists. # noqa 501
-    existing_doc_qs = Document.objects.filter(vessel=vessel).filter(
+    existing_doc_qs = Document.objects.filter(vessel_id=vessel_id).filter(
         Q(name=file_name) | Q(document_number=document_number)
     )
 
@@ -72,7 +72,7 @@ def save_document(file: File, vessel: Vessel) -> int | None:
     # Django's FileField will handle saving the file permanently.
     new_document = Document(
         name=file_name,
-        vessel=vessel,
+        vessel_id=vessel_id,
         document_number=document_number,
         file=file,
         file_size=file_size,

@@ -21,6 +21,8 @@ def index(request):
     return HttpResponse("Welcome to the OCR API!")
 
 
+# UPLOAD
+# ------------------------------------------------------------------------------
 def upload(request):
     """
     Render the upload page. Here users can upload individual pdf documents
@@ -33,11 +35,12 @@ def upload(request):
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
             logging.info("Form is valid. Processing file upload.")
-            vessel_name = form.cleaned_data["vessel"]
+            vessel = form.cleaned_data["vessel"]
+            vessel_id = vessel.id if vessel else None
             file = form.cleaned_data["file"]
 
             try:
-                handle_uploaded_file(file, vessel_name)
+                handle_uploaded_file(file, vessel_id)
             except Exception as e:
                 logging.error(f"Error processing file: {e}")
                 return render(request, "upload.html", {"form": form})
@@ -59,6 +62,8 @@ def upload_success(request):
     return render(request, "upload_success.html")
 
 
+# DOCUMENTS
+# ------------------------------------------------------------------------------
 def documents(request):
     """
     Render the documents page with filtering options.
@@ -143,9 +148,6 @@ def document_detail(request, document_id):
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
-    # Get the config from the request, default to "production.json"
-    # This config is used to filter detections based on the configuration
-    # used during the detection process.
     config = request.GET.get("config", None)
     if config is None:
         config = "production.json"
@@ -166,26 +168,18 @@ def document_detail(request, document_id):
     else:
         truths = None
 
-    # Get all configs for the current document
-    # This is used to populate the dropdown for
-    # selecting different configurations.
-    configs = set()
-    for p in pages:
-        dets = Detection.objects.filter(page=p)
-        for d in dets:
-            configs.add(d.config)
-
     context = {
         "document": document,
         "page_detections": page_detections,
         "config": config,
-        "configs": configs,
         "truths": truths,
         "vessel": document.vessel.name if document.vessel else None,
     }
     return render(request, "document_detail.html", context)
 
 
+# DELETE
+# ------------------------------------------------------------------------------
 def delete_documents_from_vessel(request):
     """
     Render the form for deleting documents from a vessel.

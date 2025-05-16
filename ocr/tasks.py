@@ -12,17 +12,17 @@ from ocr.models import Vessel
 basic_logging(__name__)
 
 
-def handle_pdf(file: File, vessel_obj: Vessel | None) -> None:
+def handle_pdf(file: File, vessel_id: int) -> None:
     """
     Handle the uploaded PDF file. This function processes the PDF file,
     creates a Document object, and saves the PDF file to the server.
 
     Args:
         file (File): The uploaded PDF file.
-        vessel_obj (Vessel): The Vessel object associated with the document.
+        vessel_id (int): The ID of the Vessel associated with the document.
     """
     try:
-        document_id = save_document(file, vessel_obj)
+        document_id = save_document(file, vessel_id)
     except IntegrityError as e:
         logging.error(f"Error saving document '{file.name}': {e}")
         raise
@@ -47,11 +47,9 @@ def process_pdf_task(self, disk_path: str, vessel_id: int):
         disk_path (str): The path to the PDF file on disk.
         vessel_id (int): The ID of the Vessel associated with the document.
     """
-    vessel = Vessel.objects.get(id=vessel_id)
-
     with open(disk_path, "rb") as f:
         django_file = File(f, name=os.path.basename(disk_path))
-        handle_pdf(django_file, vessel)
+        handle_pdf(django_file, vessel_id)
 
 
 @shared_task(bind=True, ignore_result=False)
