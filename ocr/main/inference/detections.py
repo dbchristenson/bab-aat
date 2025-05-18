@@ -5,7 +5,6 @@ from paddleocr import PaddleOCR
 from pypdfium2 import PdfDocument
 
 from ocr.main.inference.preprocessing.boundaries import figure_table_extraction
-from ocr.main.utils.configs import with_config
 from ocr.main.utils.extract_ocr_results import (
     get_bbox,
     get_confidence,
@@ -13,35 +12,9 @@ from ocr.main.utils.extract_ocr_results import (
 )
 from ocr.main.utils.loggers import setup_logging
 from ocr.main.utils.page_to_img import rotate_landscape
-from ocr.models import Detection, Document, Page
+from ocr.models import Detection, Document
 
 setup_logging(logger_name="detections")
-
-
-@with_config
-def _config_ocr(config=None):
-    """
-    Configure the OCR network.
-
-    Args:
-        config (dict): Configuration dictionary for the OCR network.
-                       Expected to contain 'paddle' settings and potentially
-                       'preprocessing' settings like 'page_render_scale',
-                       'figure_extraction_kwargs', 'table_extraction_kwargs'.
-    """
-    logging.info("Configuring OCR network...")
-
-    paddle_conf = config.get("paddle")
-
-    try:
-        ocr = PaddleOCR(**paddle_conf)
-    except Exception as e:
-        logging.exception("Failed to configure OCR network.")
-        raise e
-
-    logging.info("OCR network configured.")
-
-    return ocr
 
 
 def _extract_detections_from_image(
@@ -149,7 +122,7 @@ def _get_pdf_object(document_id: int) -> PdfDocument:
 def analyze_document(
     document_id: int,
     ocr: PaddleOCR,
-    param_config: str,
+    config_id: int,
     page_render_scale: float = 4.0,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,
@@ -169,6 +142,8 @@ def analyze_document(
     Returns:
         list[Detection]: List of all saved detection objects for the document.
     """
+    logging.info("Analyze document function called")
+    print("analyze_document function called")
     if figure_kwargs is None:
         figure_kwargs = {}
     if table_kwargs is None:
@@ -176,11 +151,12 @@ def analyze_document(
 
     pdf = _get_pdf_object(document_id)
     all_document_detections: list[Detection] = []
+    logging.info("converted pdf to pdfium object")
 
     for page_idx, page_obj in enumerate(pdf):
         page_number = page_idx + 1
         logging.info(
-            f"[{param_config}] Processing page {page_number} for document {document_id}"  # noqa E501
+            f"[{config_id}] Processing page {page_number} for document {document_id}"  # noqa E501
         )
 
         page_obj = rotate_landscape(page_obj)
@@ -191,5 +167,8 @@ def analyze_document(
         figure_im, table_im = figure_table_extraction(
             page_im, extraction_kwargs
         )
+
+        logging.info(f"figure_im returned? {bool(figure_im)}")
+        logging.info(f"table_im returned? {bool(table_im)}")
 
     return all_document_detections

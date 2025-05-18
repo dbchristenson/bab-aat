@@ -224,13 +224,11 @@ def trigger_document_detections(request, document_id):
             )
 
             get_document_detections_task.delay(document.id, config.id)
-            # Add a success message if desired
             logging.info(
                 f"Triggered OCR task for document {document_id} with config {config_id}"  # noqa E501
-            )  # noqa E501
+            )
         except Exception as e:
             logging.error(f"Error triggering OCR task: {e}")
-            # Add an error message
 
         return redirect(
             reverse("ocr:document_detail", args=[document_id])
