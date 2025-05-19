@@ -1,6 +1,5 @@
-import logging
-
 import numpy as np
+from loguru import logger
 from paddleocr import PaddleOCR
 from pypdfium2 import PdfDocument
 
@@ -10,11 +9,8 @@ from ocr.main.utils.extract_ocr_results import (
     get_confidence,
     get_ocr,
 )
-from ocr.main.utils.loggers import setup_logging
 from ocr.main.utils.page_to_img import rotate_landscape
 from ocr.models import Detection, Document
-
-setup_logging(logger_name="detections")
 
 
 def _extract_detections_from_image(
@@ -38,14 +34,14 @@ def _extract_detections_from_image(
     if (
         not ocr_results or not ocr_results[0]
     ):  # Ensure results are not None or empty
-        logging.info(
+        logger.info(
             f"[{param_config}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
         )
         return []
 
     lines = ocr_results[0]
 
-    logging.info(
+    logger.info(
         f"[{param_config}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
     )
 
@@ -55,7 +51,7 @@ def _extract_detections_from_image(
         confidence = get_confidence(line_data)
         text = get_ocr(line_data)
 
-        logging.debug(
+        logger.debug(
             f"[{param_config}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
         )
 
@@ -68,7 +64,7 @@ def _extract_detections_from_image(
         )
         detections.append(det)
 
-    logging.info(
+    logger.info(
         f"[{param_config}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
     )
 
@@ -96,7 +92,7 @@ def _save_adjusted_detections(
         det.bbox = adjusted_bbox
         det.save()
         saved_detections.append(det)
-        logging.debug(
+        logger.debug(
             f"[{det.param_config}] Saved detection ID {det.id} for page ID {det.page_id} with adjusted bbox: {det.bbox}"  # noqa E501
         )
     return saved_detections
@@ -142,7 +138,7 @@ def analyze_document(
     Returns:
         list[Detection]: List of all saved detection objects for the document.
     """
-    logging.info("Analyze document function called")
+    logger.info("Analyze document function called")
     print("analyze_document function called")
     if figure_kwargs is None:
         figure_kwargs = {}
@@ -151,11 +147,11 @@ def analyze_document(
 
     pdf = _get_pdf_object(document_id)
     all_document_detections: list[Detection] = []
-    logging.info("converted pdf to pdfium object")
+    logger.info("converted pdf to pdfium object")
 
     for page_idx, page_obj in enumerate(pdf):
         page_number = page_idx + 1
-        logging.info(
+        logger.info(
             f"[{config_id}] Processing page {page_number} for document {document_id}"  # noqa E501
         )
 
@@ -168,7 +164,7 @@ def analyze_document(
             page_im, extraction_kwargs
         )
 
-        logging.info(f"figure_im returned? {bool(figure_im)}")
-        logging.info(f"table_im returned? {bool(table_im)}")
+        logger.info(f"figure_im returned? {bool(figure_im)}")
+        logger.info(f"table_im returned? {bool(table_im)}")
 
     return all_document_detections

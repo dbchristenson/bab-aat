@@ -1,9 +1,8 @@
-import logging
-
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from loguru import logger
 
 from ocr.forms import (
     DeleteDocumentsFromVesselForm,
@@ -12,11 +11,8 @@ from ocr.forms import (
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.draw_detections import draw_detections
-from ocr.main.utils.loggers import basic_logging
 from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
 from ocr.tasks import get_document_detections as get_document_detections_task
-
-basic_logging(__name__)
 
 
 def index(request):
@@ -37,10 +33,10 @@ def upload(request):
     """
 
     if request.method == "POST":
-        logging.info("Received a POST request for file upload.")
+        logger.info("Received a POST request for file upload.")
         form = UploadFileForm(request.POST, request.FILES)
         if form.is_valid():
-            logging.info("Form is valid. Processing file upload.")
+            logger.info("Form is valid. Processing file upload.")
             vessel = form.cleaned_data["vessel"]
             vessel_id = vessel.id if vessel else None
             file = form.cleaned_data["file"]
@@ -48,12 +44,12 @@ def upload(request):
             try:
                 handle_uploaded_file(file, vessel_id)
             except Exception as e:
-                logging.error(f"Error processing file: {e}")
+                logger.error(f"Error processing file: {e}")
                 return render(request, "upload.html", {"form": form})
 
             return render(request, "upload_success.html")
         else:
-            logging.error("Form is invalid.")
+            logger.error("Form is invalid.")
             return render(request, "upload.html", {"form": form})
     else:
         form = UploadFileForm()
@@ -162,7 +158,7 @@ def document_detail(request, document_id):
         try:
             selected_config = OCRConfig.objects.get(id=selected_config_id)
         except OCRConfig.DoesNotExist:
-            logging.warning(f"Config with id {selected_config_id} not found.")
+            logger.warning(f"Config with id {selected_config_id} not found.")
             # Optionally, fall back to the first config or no config
             if all_configs.exists():
                 selected_config = all_configs.first()
@@ -219,16 +215,16 @@ def trigger_document_detections(request, document_id):
             Detection.objects.filter(
                 page_id__in=page_ids, config=config
             ).delete()
-            logging.info(
+            logger.info(
                 f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
             )
 
             get_document_detections_task.delay(document.id, config.id)
-            logging.info(
+            logger.info(
                 f"Triggered OCR task for document {document_id} with config {config_id}"  # noqa E501
             )
         except Exception as e:
-            logging.error(f"Error triggering OCR task: {e}")
+            logger.error(f"Error triggering OCR task: {e}")
 
         return redirect(
             reverse("ocr:document_detail", args=[document_id])
