@@ -10,7 +10,7 @@ from ocr.main.utils.extract_ocr_results import (
     get_ocr,
 )
 from ocr.main.utils.page_to_img import rotate_landscape
-from ocr.models import Detection, Document
+from ocr.models import Detection, Document, Page
 
 
 def _extract_detections_from_image(
@@ -115,6 +115,23 @@ def _get_pdf_object(document_id: int) -> PdfDocument:
     return pdf
 
 
+def _page_to_image(page_obj, page_render_scale: float = 4.0):
+    """
+    Convert a PDF page object to an image.
+
+    Args:
+        page_obj: The PDF page object.
+        page_render_scale (float): Scale factor for rendering the page.
+
+    Returns:
+        PIL.Image: The rendered image of the page.
+    """
+    # Render the page to an image
+    page_obj = rotate_landscape(page_obj)
+    page_bitmap = page_obj.render(scale=page_render_scale)
+    return page_bitmap.to_pil()
+
+
 def analyze_document(
     document_id: int,
     ocr: PaddleOCR,
@@ -155,16 +172,48 @@ def analyze_document(
             f"[{config_id}] Processing page {page_number} for document {document_id}"  # noqa E501
         )
 
-        page_obj = rotate_landscape(page_obj)
-        page_bitmap = page_obj.render(scale=page_render_scale)
-        page_im = page_bitmap.to_pil()
-
-        extraction_kwargs = {**figure_kwargs, **table_kwargs}
-        figure_im, table_im = figure_table_extraction(
-            page_im, extraction_kwargs
+        page_im = _page_to_image(page_obj, page_render_scale)
+        page_db = Page.objects.create(
+            document_id=document_id, page_number=page_number
         )
 
-        logger.info(f"figure_im returned? {bool(figure_im)}")
-        logger.info(f"table_im returned? {bool(table_im)}")
+        extraction_kwargs = {figure_kwargs, table_kwargs}
+        figure_im, table_im, figure_offset, table_offset = (
+            figure_table_extraction(page_im, extraction_kwargs)
+        )
+
+        logger.debug(f"figure_im returned? {bool(figure_im)}")
+        logger.debug(f"table_im returned? {bool(table_im)}")
+        logger.debug(f"figure_offset: {figure_offset}")
+        logger.debug(f"table_offset: {table_offset}")
+
+        figure_dets = _extract_detections_from_image(
+            figure_im,
+            ocr,
+            config_id,
+            page_db.id,
+        )
+        table_dets = _extract_detections_from_image(
+            table_im,
+            ocr,
+            config_id,
+            page_db.id,
+        )
+
+        saved_figure_dets = _save_adjusted_detections(
+            figure_dets, figure_offset[0], figure_offset[1]
+        )
+        saved_table_dets = _save_adjusted_detections(
+            table_dets, table_offset[0], table_offset[1]
+        )
+
+        all_document_detections.extend(saved_figure_dets)
+        all_document_detections.extend(saved_table_dets)
+        logger.info(
+            f"[{config_id}] Completed page {page_number} for document {document_id}"  # noqa E501
+        )
+        logger.info(
+            f"[{config_id}] Total detections so far: {len(all_document_detections)}"  # noqa E501
+        )
 
     return all_document_detections
