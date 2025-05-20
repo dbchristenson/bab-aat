@@ -94,7 +94,7 @@ def _save_adjusted_detections(
         det.save()
         saved_detections.append(det)
         logger.debug(
-            f"[{det.param_config}] Saved detection ID {det.id} for page ID {det.page_id} with adjusted bbox: {det.bbox}"  # noqa E501
+            f"[{det.config.name}] Saved detection ID {det.id} for page ID {det.page_id} with adjusted bbox: {det.bbox}"  # noqa E501
         )
     return saved_detections
 
