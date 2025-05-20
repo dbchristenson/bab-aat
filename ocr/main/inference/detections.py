@@ -15,7 +15,7 @@ from ocr.models import Detection, Document, Page
 
 
 def _extract_detections_from_image(
-    image_np: np.ndarray, ocr: PaddleOCR, param_config: str, page_db_id: int
+    image_np: np.ndarray, ocr: PaddleOCR, config_id: int, page_db_id: int
 ) -> list[Detection]:
     """
     Get detections for a given image numpy array using the OCR network.
@@ -24,7 +24,7 @@ def _extract_detections_from_image(
     Args:
         image_np (np.ndarray): The image numpy array to process.
         ocr (PaddleOCR): The configured OCR network.
-        param_config (str): The name of the param_config or model used.
+        config_id (int): The id of the OCRConfig object used.
         page_db_id (int): The ID of the Page object this image belongs to.
 
     Returns:
@@ -36,14 +36,14 @@ def _extract_detections_from_image(
         not ocr_results or not ocr_results[0]
     ):  # Ensure results are not None or empty
         logger.info(
-            f"[{param_config}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
+            f"[{config_id}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
         )
         return []
 
     lines = ocr_results[0]
 
     logger.info(
-        f"[{param_config}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
+        f"[{config_id}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
     )
 
     detections: list[Detection] = []
@@ -53,7 +53,7 @@ def _extract_detections_from_image(
         text = get_ocr(line_data)
 
         logger.debug(
-            f"[{param_config}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
+            f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
         )
 
         det = Detection(
@@ -61,12 +61,12 @@ def _extract_detections_from_image(
             bbox=bbox,
             confidence=confidence,
             text=text,
-            param_config=param_config,
+            config_id=config_id,
         )
         detections.append(det)
 
     logger.info(
-        f"[{param_config}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
+        f"[{config_id}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
     )
 
     return detections

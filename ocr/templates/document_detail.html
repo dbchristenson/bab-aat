@@ -38,7 +38,7 @@
                     type="button" id="configDropdownButton"
                     data-bs-toggle="dropdown" aria-expanded="false">
                     <span id="configDropdownLabel">
-                        {{ selected_config.name|default:"Select Config" }}
+                        {{ selected_config.name | default:"Select Config" }}
                     </span>
                 </button>
 
@@ -74,7 +74,7 @@
                 <input type="hidden" name="config_id"
                     value="{{ selected_config.id }}">
                 <button type="submit" class="btn btn-primary w-100">Run OCR
-                    with: {{selected_config.name}}</button>
+                    with: {{ selected_config.name }}</button>
             </form>
             {% else %}
             <button type="button" class="btn btn-primary w-100" disabled>Run OCR
