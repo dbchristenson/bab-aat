@@ -17,7 +17,7 @@ def basic_logging(logger_name: str):
         level=logging.INFO,  # Set the logging level
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(f"ocr/main/logs/{logger_name}.log"),  # Log to a file
+            logging.FileHandler(f"ocr/main/logs/{logger_name}.log"),
             logging.StreamHandler(),  # Log to the console
         ],
     )

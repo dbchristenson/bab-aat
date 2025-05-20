@@ -3,10 +3,26 @@
 
 {% block title %} BAB OCR Document Detail {% endblock %}
 {% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'css/document_detail.css' %}">
+<link rel="stylesheet" type="text/css"
+    href="{% static 'css/document_detail.css' %}">
 {% endblock %}
 {% block scripts %}
 <script src="{% static 'js/document_detail.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const configRadios = document.querySelectorAll('.config-select');
+        configRadios.forEach(radio => {
+            radio.addEventListener('change', function () {
+                if (this.checked) {
+                    const selectedId = this.value;
+                    const currentUrl = new URL(window.location.href);
+                    currentUrl.searchParams.set('config_id', selectedId);
+                    window.location.href = currentUrl.toString();
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}
 
 {% block content %}
@@ -14,55 +30,97 @@
     <div class="row g-3 mb-4 align-items-end">
         <h2 class="col-auto">Detections {{ document.document_number }}</h2>
 
-        <div class="col-md-5">
-            <label class="form-label">&nbsp;</label>
-            <div class="dropdown mx-5 my-1">
-                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" id="configDropdownButton"
+        <div class="col-md-4">
+            <label class="form-label" for="configDropdownButton">
+                Select OCR Config (View)
+            </label>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle w-100"
+                    type="button" id="configDropdownButton"
                     data-bs-toggle="dropdown" aria-expanded="false">
                     <span id="configDropdownLabel">
-                        {{ config|default:"Select Config" }}
+                        {{ selected_config.name | default:"Select Config" }}
                     </span>
                 </button>
 
-                <div class="dropdown-menu" aria-labelledby="configDropdownButton"
+                <div class="dropdown-menu"
+                    aria-labelledby="configDropdownButton"
                     style="max-height:200px; overflow-y:auto; padding:.5rem;">
-                    {% for cfg in configs %}
+                    {% for cfg_item in configs %}
                     <div class="form-check px-3">
-                        <input class="form-check-input config-select" type="radio" name="config"
-                            id="configRadio{{ forloop.counter }}" value="{{ cfg }}" {% if cfg == selected_config %}checked{% endif %}>
-                        <label class="form-check-label" for="configRadio{{ forloop.counter }}">
-                            {{ cfg }}
+                        <input class="form-check-input config-select"
+                            type="radio" name="config_view"
+                            id="configRadio{{ cfg_item.id }}"
+                            value="{{ cfg_item.id }}" {% if
+                            cfg_item.id==selected_config.id %}checked{% endif
+                            %}>
+                        <label class="form-check-label"
+                            for="configRadio{{ cfg_item.id }}">
+                            {{ cfg_item.name }}
                         </label>
                     </div>
                     {% endfor %}
+                    {% if not configs %}
+                    <a class="dropdown-item" href="#">No configs available</a>
+                    {% endif %}
                 </div><!-- /.dropdown-menu -->
             </div><!-- /.dropdown -->
         </div><!-- /.col -->
+        <div class="col-md-3">
+            {% if selected_config %}
+            <form method="POST"
+                action="{% url 'ocr:trigger_document_detections' document_id=document.id %}"
+                class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="config_id"
+                    value="{{ selected_config.id }}">
+                <button type="submit" class="btn btn-primary w-100">Run OCR
+                    with: {{ selected_config.name }}</button>
+            </form>
+            {% else %}
+            <button type="button" class="btn btn-primary w-100" disabled>Run OCR
+                (Select Config First)</button>
+            {% endif %}
+        </div>
+
     </div><!-- /.row -->
 
     <!-- Detections -->
     <div class="container my-4">
+        {% if selected_config %}
         {% for page, dets in page_detections %}
-        <div class="row mb-4 align-items-start">
-            <!-- Fixed‑width column for detections -->
-            <div class="col-auto">
-                <h5>Page {{ page.page_number }}</h5>
-                <ul class="list-unstyled mb-0">
-                    {% for det in dets %}
-                    <li>{{ det.text }} <small>(conf={{ det.confidence|floatformat:2 }})</small></li>
-                    {% empty %}
-                    <li><em>No detections</em></li>
-                    {% endfor %}
-                </ul>
-            </div>
-
-            <!-- Auto‑sized column for the truth text -->
-            <div class="col-auto">
-                <h5>Truth</h5>
-                <p class="mb-0">{{ truths|index:forloop.counter0|default:"—" }}</p>
-            </div>
-        </div>
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Text</th>
+                    <th>Confidence</th>
+                    <th>Bounding Box</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in dets %}
+                <tr>
+                    <td>{{ d.created_at }}</td>
+                    <td>{{ d.text }}</td>
+                    <td>{{ d.confidence }}</td>
+                    <td>{{ d.bbox }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No detections for this config and page.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% empty %}
+        <p>No pages found for this document, or no config selected.</p>
         {% endfor %}
-
+        {% else %}
+        <p>Please select an OCR Configuration to view or run detections.</p>
+        <p><a href="{% url 'ocr:create_ocr_config' %}"
+                class="btn btn-info">Create New OCR Config</a></p>
+        {% endif %}
     </div>
-    {% endblock %}
+</div> <!-- Closing outer container -->
+{% endblock %}

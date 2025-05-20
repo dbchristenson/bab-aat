@@ -1,3 +1,21 @@
+"""
+This module contains functions to extract the figure and table boundaries from
+an image. It uses OpenCV to find contours and filter them based on area and
+proximity to image edges.
+
+Useable functions:
+- `figure_table_extraction`: Function to extract figure and table from image.
+    Args:
+        - img_path (str): Path to the image file.
+        - kwargs: Additional arguments for figure and table extraction.
+            - figure_kwargs (dict): Arguments for figure extraction.
+            - table_kwargs (dict): Arguments for table extraction.
+
+    Returns:
+        - figure_crop (np.ndarray): Cropped figure image.
+        - table_crop (np.ndarray): Cropped table image.
+"""
+
 import logging
 import math  # For checking non-finite numbers
 
@@ -18,7 +36,9 @@ def _get_image_dimensions(img: np.ndarray) -> tuple[int, int]:
     elif img.ndim == 3:  # Color
         h_img, w_img, _ = img.shape
     else:
-        raise ValueError(f"Unsupported image dimensions: {img.ndim}. Expected 2 or 3.")
+        raise ValueError(
+            f"Unsupported image dimensions: {img.ndim}. Expected 2 or 3."
+        )
     return h_img, w_img
 
 
@@ -103,7 +123,9 @@ def _identify_primary_candidates(
     if len(valid_contours_data) == 1:
         return valid_contours_data  # Only one candidate
 
-    primary_candidates.append(valid_contours_data[0])  # Add the largest unconditionally
+    primary_candidates.append(
+        valid_contours_data[0]
+    )  # Add the largest unconditionally
 
     for i in range(len(valid_contours_data) - 1):
         current_area = valid_contours_data[i]["area"]
@@ -209,7 +231,9 @@ def _figure_extraction(img: np.ndarray, **kwargs):
         all_contours=contours,
         img=img,
         min_area_ratio=kwargs.get("min_area_ratio", 0.01),  # 1% min area
-        edge_margin_ratio=kwargs.get("edge_margin_ratio", 0.005),  # 0.1% edge margin
+        edge_margin_ratio=kwargs.get(
+            "edge_margin_ratio", 0.005
+        ),  # 0.1% edge margin
         area_drop_off_ratio=kwargs.get(
             "area_drop_off_ratio", 1.75
         ),  # Drop-off if area ratio > 1.75
@@ -260,6 +284,79 @@ def _table_extraction(img, figure_bbox, **kwargs):
     return table_bbox
 
 
+def _extract_crop_and_offset(
+    original_image: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    item_name: str,
+    img_width: int,
+    img_height: int,
+) -> tuple[np.ndarray | None, tuple[int, int]]:
+    """
+    Extracts a crop from the original image based on the bounding box and
+    returns the crop and its top-left (x, y) offset.
+
+    Args:
+        original_image (np.ndarray): The full image to crop from.
+        bbox (tuple[int, int, int, int]): The bounding box (x, y, w, h).
+        item_name (str): Name of item being cropped (e.g., "figure", "table").
+        img_width (int): Width of the original_image.
+        img_height (int): Height of the original_image.
+
+    Returns:
+        tuple[np.ndarray | None, tuple[int, int]]:
+            - cropped_image (np.ndarray | None): The cropped portion of the
+            image. None if the bbox is invalid or crop is empty.
+            - offset (tuple[int, int]): The (x, y) coordinates of the top-left
+            corner of the bounding box.
+    """
+    x, y, w, h = bbox
+    offset = (x, y)  # The offset is always the top-left of the bbox
+
+    crop = None
+    if (
+        w > 0
+        and h > 0
+        and x < img_width
+        and y < img_height
+        and (x + w) > 0
+        and (y + h) > 0
+    ):
+        # Calculate slice coordinates, clipped to image boundaries
+        slice_x_start = max(0, x)
+        slice_y_start = max(0, y)
+        slice_x_end = min(img_width, x + w)
+        slice_y_end = min(img_height, y + h)
+
+        # Ensure the slice has positive dimensions after clipping
+        if slice_x_end > slice_x_start and slice_y_end > slice_y_start:
+            crop = original_image[
+                slice_y_start:slice_y_end, slice_x_start:slice_x_end
+            ]
+            if (
+                crop.size == 0
+            ):  # Should be redundant if previous check is robust
+                logging.warning(
+                    f"{item_name.capitalize()} crop for bbox {bbox}=empty im."
+                )
+                crop = None
+        else:
+            logging.warning(
+                f"{item_name} bbox {bbox} resulted in non-positive slice "
+                f"dimensions after clipping: (x_start={slice_x_start}, "
+                f"y_start={slice_y_start}, width={slice_x_end-slice_x_start}, "
+                f"height={slice_y_end-slice_y_start}). No crop generated."
+            )
+            # crop remains None
+    else:
+        logging.debug(
+            f"{item_name.capitalize()} bbox {bbox} has zero/negative "
+            / "dimensions or is entirely outside image. No crop generated."
+        )
+        # crop remains None
+
+    return crop, offset
+
+
 # --- Main Function ---
 
 
@@ -297,7 +394,9 @@ def find_significant_inner_boundary(
 
     logging.debug(f"Image Dimensions (HxW): {h_img} x {w_img}")
 
-    min_area_thresh = _calculate_min_area_threshold(h_img, w_img, min_area_ratio)
+    min_area_thresh = _calculate_min_area_threshold(
+        h_img, w_img, min_area_ratio
+    )  # noqa: E501
     logging.debug(
         f"Min Area Threshold ({min_area_ratio*100:.2f}% of total): {min_area_thresh:.2f}"  # noqa: E501
     )
@@ -318,7 +417,9 @@ def find_significant_inner_boundary(
     )
 
     if not valid_contours_data:
-        logging.warning("Warning: No valid contours remaining after initial filtering.")
+        logging.warning(
+            "Warning: No valid contours remaining after initial filtering."
+        )
         return []
 
     # Identify primary candidates based on area drop-off
@@ -329,7 +430,9 @@ def find_significant_inner_boundary(
     primary_candidates_data = _identify_primary_candidates(
         valid_contours_data, area_drop_off_ratio
     )
-    logging.debug(f"Identified {len(primary_candidates_data)} primary candidates.")
+    logging.debug(
+        f"Identified {len(primary_candidates_data)} primary candidates."
+    )
 
     if not primary_candidates_data:
         logging.warning("Warning: No primary candidates identified.")
@@ -350,42 +453,73 @@ def find_significant_inner_boundary(
     return figure_contour_list
 
 
-def figure_table_extraction(img_path: str, **kwargs):
+def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
     """
     Takes an image path and returns the cropped figure and table images.
 
     Args:
-        img_path (str): Path to the image file.
+        img (PIL): Path to the image file.
         **kwargs: Additional arguments for figure and table extraction.
             - figure_kwargs (dict): Arguments for figure extraction.
             - table_kwargs (dict): Arguments for table extraction.
+
+    Returns:
+        tuple: A tuple containing:
+            - figure_crop (np.ndarray): Cropped figure image.
+            - table_crop (np.ndarray): Cropped table image.
+            - figure_offset (tuple[int, int]): Offset of the figure crop.
+            - table_offset (tuple[int, int]): Offset of the table crop.
     """
-    logging.debug(f"=====Loading image from {img_path}=====")
+    if img is None or img.size == 0:
+        logging.error("Input image is None or empty.")
+        return None, None, None, None
 
-    # load image
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-
-    # figure extraction
     try:
-        figure_kwargs = kwargs.get("figure_kwargs", {})
-        figure_bbox = _figure_extraction(img, **figure_kwargs)
-    except Exception as e:
-        logging.exception(f"Error during figure extraction: {e}")
-        return None, None
+        h_img, w_img = _get_image_dimensions(img)
+    except ValueError as e:
+        logging.error(f"Main extraction: invalid image dimensions: {e}")
+        return None, None, None, None
 
-    # table extraction
+    fig_crop, fig_offset = None, None
+    tbl_crop, tbl_offset = None, None
+
+    fig_bbox = None  # Initialize
+
+    # Figure extraction
     try:
-        table_kwargs = kwargs.get("table_kwargs", {})
-        table_bbox = _table_extraction(img, figure_bbox, **table_kwargs)
+        fig_kwargs = kwargs.get("figure_kwargs", {})
+        fig_bbox = _figure_extraction(img, **fig_kwargs)
+
+        if fig_bbox:
+            fig_crop, fig_offset = _extract_crop_and_offset(
+                img, fig_bbox, "figure", w_img, h_img
+            )
+        else:
+            logging.warning("Figure extraction failed to return bbox.")
+            # If no figure_bbox, can't proceed to table based on it.
+            # Return what we have (all Nones if fig_bbox was critical)
+            return fig_crop, tbl_crop, fig_offset, tbl_offset
+
     except Exception as e:
-        logging.exception(f"Error during table extraction: {e}")
-        return None, None
+        logging.exception(f"Error during figure processing: {e}")
+        return None, None, None, None  # Critical error
 
-    # crop image
-    fx, fy, fw, fh = figure_bbox
-    tx, ty, tw, th = table_bbox
+    # Table extraction relies on a valid figure_bbox
+    if fig_bbox:  # fig_bbox must be valid here
+        try:
+            tbl_kwargs = kwargs.get("table_kwargs", {})
+            # _table_extraction expects a valid fig_bbox
+            table_bbox = _table_extraction(img, fig_bbox, **tbl_kwargs)
 
-    figure_crop = img[fy : fy + fh, fx : fx + fw]  # noqa: E203
-    table_crop = img[ty : ty + th, tx : tx + tw]  # noqa: E203
+            # _table_extraction always returns a bbox tuple (possibly 0 w/h)
+            tbl_crop, tbl_offset = _extract_crop_and_offset(
+                img, table_bbox, "table", w_img, h_img
+            )
+        except Exception as e:
+            logging.exception(f"Error during table processing: {e}")
+            # Preserve figure results, table results will be None
+    else:
+        # This case should ideally be caught earlier if fig_bbox is None
+        logging.warning("Figure bbox not available; table extraction skipped.")
 
-    return figure_crop, table_crop
+    return fig_crop, tbl_crop, fig_offset, tbl_offset
