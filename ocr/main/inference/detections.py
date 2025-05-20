@@ -108,11 +108,28 @@ def _get_pdf_object(document_id: int) -> PdfDocument:
     Returns:
         PdfDocument: The PDF document object.
     """
-    document = Document.objects.get(id=document_id)
-    document_file_path = document.file.path
-    pdf = PdfDocument(document_file_path)
+    logger.info(f"Fetching document with ID: {document_id} for PDF object")
+    try:
+        document = Document.objects.get(id=document_id)
+    except Document.DoesNotExist:
+        logger.error(
+            f"Document with ID {document_id} not found in _get_pdf_object."
+        )
+        raise
 
-    return pdf
+    try:
+        with document.file.open("rb") as f:  # Open in binary read mode
+            pdf_bytes = f.read()
+        logger.info(f"Read {len(pdf_bytes)} bytes from document {document_id}")
+        pdf = PdfDocument(pdf_bytes)  # Load from bytes
+        logger.info(f"Successfully loaded PDF for document {document_id}")
+        return pdf
+    except Exception as e:
+        logger.error(
+            f"Error opening or loading PDF for document {document_id}: {e}",
+            exc_info=True,
+        )
+        raise
 
 
 def _page_to_image(page_obj, page_render_scale: float = 4.0):
@@ -129,7 +146,33 @@ def _page_to_image(page_obj, page_render_scale: float = 4.0):
     # Render the page to an image
     page_obj = rotate_landscape(page_obj)
     page_bitmap = page_obj.render(scale=page_render_scale)
-    return page_bitmap.to_pil()
+    page_pil = page_bitmap.to_pil()
+
+    return np.array(page_pil)
+
+
+def _create_page_in_db(document_id: int, page_number: int) -> bool:
+    """
+    Create a Page object in the database for a given doc ID and page number.
+    If the Page object already exists, it will not be created again.
+
+    Args:
+        document_id (int): The ID of the document.
+        page_number (int): The page number (0-indexed).
+
+    Returns:
+        bool: True if the Page object was created, False if it already existed.
+    """
+    page_db, created = Page.objects.get_or_create(
+        document_id=document_id, page_number=page_number
+    )
+
+    if created:
+        logger.info(
+            f"Created Page object for doc {document_id}, page {page_number}"
+        )
+
+    return created
 
 
 def analyze_document(
@@ -155,8 +198,10 @@ def analyze_document(
     Returns:
         list[Detection]: List of all saved detection objects for the document.
     """
-    logger.info("Analyze document function called")
-    print("analyze_document function called")
+    logger.info(
+        f"Analyze document called for doc: {document_id}, config: {config_id}"
+    )
+
     if figure_kwargs is None:
         figure_kwargs = {}
     if table_kwargs is None:
@@ -164,8 +209,19 @@ def analyze_document(
 
     pdf = _get_pdf_object(document_id)
     all_document_detections: list[Detection] = []
-    logger.info("converted pdf to pdfium object")
 
+    from ocr.models import OCRConfig  # Local import
+
+    try:
+        ocr_config_model_instance = OCRConfig.objects.get(pk=config_id)
+        param_config_name = ocr_config_model_instance.name
+    except OCRConfig.DoesNotExist:
+        logger.warning(
+            f"OCRConfig with ID {config_id} not found. Using ID as name."
+        )
+        param_config_name = str(config_id)
+
+    # Iterate through each page of the PDF
     for page_idx, page_obj in enumerate(pdf):
         page_number = page_idx + 1
         logger.info(
@@ -173,13 +229,21 @@ def analyze_document(
         )
 
         page_im = _page_to_image(page_obj, page_render_scale)
-        page_db = Page.objects.create(
-            document_id=document_id, page_number=page_number
-        )
 
-        extraction_kwargs = {figure_kwargs, table_kwargs}
+        # Create page in db
+        try:
+            page_db = _create_page_in_db(document_id, page_number)
+        except Exception as e:
+            logger.error(
+                f"Error creating page in DB for doc {document_id}, page {page_number}: {e}",  # noqa E501
+                exc_info=True,
+            )
+            continue
+
         figure_im, table_im, figure_offset, table_offset = (
-            figure_table_extraction(page_im, extraction_kwargs)
+            figure_table_extraction(
+                page_im, figure_kwargs=figure_kwargs, table_kwargs=table_kwargs
+            )
         )
 
         logger.debug(f"figure_im returned? {bool(figure_im)}")
@@ -209,11 +273,13 @@ def analyze_document(
 
         all_document_detections.extend(saved_figure_dets)
         all_document_detections.extend(saved_table_dets)
-        logger.info(
-            f"[{config_id}] Completed page {page_number} for document {document_id}"  # noqa E501
-        )
-        logger.info(
-            f"[{config_id}] Total detections so far: {len(all_document_detections)}"  # noqa E501
-        )
+
+        page_obj.close()
+
+    pdf.close()
+    logger.info(
+        f"[{param_config_name}] Completed document {document_id}. "
+        f"Total detections: {len(all_document_detections)}"
+    )
 
     return all_document_detections
