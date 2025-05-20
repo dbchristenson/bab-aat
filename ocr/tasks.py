@@ -83,7 +83,10 @@ def _initialize_paddle_ocr(config_id: int) -> PaddleOCR:
         if "show_log" not in paddle_params:
             paddle_params["show_log"] = False
 
-        model = PaddleOCR(**paddle_params["paddle"])
+        if "paddle" in paddle_params:
+            paddle_params = paddle_params["paddle"]
+
+        model = PaddleOCR(**paddle_params)
         logger.info(f"Successfully init PaddleOCR for config_id: {config_id}")
         return model
     except OCRConfig.DoesNotExist:
