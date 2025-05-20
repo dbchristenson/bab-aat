@@ -258,11 +258,6 @@ def analyze_document(
             )
         )
 
-        logger.debug(f"figure_im returned? {bool(figure_im)}")
-        logger.debug(f"table_im returned? {bool(table_im)}")
-        logger.debug(f"figure_offset: {figure_offset}")
-        logger.debug(f"table_offset: {table_offset}")
-
         figure_dets = _extract_detections_from_image(
             figure_im,
             ocr,
