@@ -83,7 +83,7 @@ def _initialize_paddle_ocr(config_id: int) -> PaddleOCR:
         if "show_log" not in paddle_params:
             paddle_params["show_log"] = False
 
-        model = PaddleOCR(**paddle_params)
+        model = PaddleOCR(**paddle_params["paddle"])
         logger.info(f"Successfully init PaddleOCR for config_id: {config_id}")
         return model
     except OCRConfig.DoesNotExist:
@@ -96,10 +96,8 @@ def _initialize_paddle_ocr(config_id: int) -> PaddleOCR:
         )
         raise
 
-    return
 
-
-def get_ocr_model_instance(config_id: int) -> PaddleOCR:
+def _get_ocr_model_instance(config_id: int) -> PaddleOCR:
     """
     Retrieves a PaddleOCR model instance from cache or initializes it.
     """
@@ -127,6 +125,6 @@ def get_document_detections(self, document_id: int, config_id: int):
 
     analyze_document(
         document_id=document_id,
-        ocr=get_ocr_model_instance(config_id),
+        ocr=_get_ocr_model_instance(config_id),
         config_id=config_id,
     )

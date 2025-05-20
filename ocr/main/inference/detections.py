@@ -1,3 +1,4 @@
+import cv2 as cv
 import numpy as np
 from loguru import logger
 from paddleocr import PaddleOCR
@@ -147,11 +148,22 @@ def _page_to_image(page_obj, page_render_scale: float = 4.0):
     page_obj = rotate_landscape(page_obj)
     page_bitmap = page_obj.render(scale=page_render_scale)
     page_pil = page_bitmap.to_pil()
+    image_np = np.array(page_pil)
 
-    return np.array(page_pil)
+    if len(image_np.shape) == 3:
+        if image_np.shape[2] == 3:  # RGB
+            gray_image_np = cv.cvtColor(image_np, cv.COLOR_RGB2GRAY)
+        elif image_np.shape[2] == 4:  # RGBA
+            gray_image_np = cv.cvtColor(image_np, cv.COLOR_RGBA2GRAY)
+        else:  # Should not happen with typical PIL images from PDF
+            gray_image_np = image_np  # Fallback, but unlikely
+    else:  # Already grayscale or single channel
+        gray_image_np = image_np
+
+    return gray_image_np
 
 
-def _create_page_in_db(document_id: int, page_number: int) -> bool:
+def _create_page_in_db(document_id: int, page_number: int) -> Page:
     """
     Create a Page object in the database for a given doc ID and page number.
     If the Page object already exists, it will not be created again.
@@ -161,7 +173,7 @@ def _create_page_in_db(document_id: int, page_number: int) -> bool:
         page_number (int): The page number (0-indexed).
 
     Returns:
-        bool: True if the Page object was created, False if it already existed.
+        Page: The Page object created or retrieved from the database.
     """
     page_db, created = Page.objects.get_or_create(
         document_id=document_id, page_number=page_number
@@ -172,7 +184,7 @@ def _create_page_in_db(document_id: int, page_number: int) -> bool:
             f"Created Page object for doc {document_id}, page {page_number}"
         )
 
-    return created
+    return page_db
 
 
 def analyze_document(
