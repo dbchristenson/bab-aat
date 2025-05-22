@@ -75,6 +75,7 @@ def save_document(file: File, vessel_id: int) -> int | None:
         name=file_name,
         vessel_id=vessel_id,
         document_number=document_number,
+        department_origin=department_origin,
         file=file,
         file_size=file_size,
         last_modified=last_modified,

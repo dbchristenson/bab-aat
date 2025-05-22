@@ -27,6 +27,7 @@ class Document(models.Model):
         name (str): The name of the document.
         vessel (str): The name of the vessel associated with the document, optional.    # noqa E501
         document_number (str): The document number.
+        department_origin (str): The department origin of the document.
         file_path (str): The path to the document file.
         file_size (int): The size of the document file in bytes.
         last_modified (datetime): The last modified date of the document.
