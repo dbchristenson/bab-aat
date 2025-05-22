@@ -295,13 +295,17 @@ def detect_by_origin(request):
     if request.method == "POST":
         form = DetectByOriginForm(request.POST)
         if form.is_valid():
+            logger.info("Batch detection form is valid.")
             vessel = form.cleaned_data["vessel"]
             department_origin = form.cleaned_data["department_origin"]
-
+            logger.info(
+                f"Selected vessel: {vessel}, origin: {department_origin}"
+            )
             # Get all documents for the selected vessel
             documents = Document.objects.filter(
                 vessel=vessel, department_origin=department_origin
             )
+            logger.info(f"Found {documents.count()} documents for detection.")
 
             # Trigger detection for each document
             for document in documents:
