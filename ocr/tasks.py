@@ -131,3 +131,76 @@ def get_document_detections(self, document_id: int, config_id: int):
         ocr=_get_ocr_model_instance(config_id),
         config_id=config_id,
     )
+
+
+# Post-processing
+@shared_task(bind=True, ignore_result=False)
+def process_detections_to_tags(self, document_id: int):
+    """
+    Celery task for processing detections to tags.
+
+    Post-processing pipeline for a single document begins here.
+    The function will call a handler which will use the detections
+    from the given document and use an algorithm (likely multiple)
+    to refine the detections into tags. Those tags will then be saved
+    to the database.
+
+    Args:
+        document_id (int): The ID of the document to process.
+
+    Returns:
+        None
+    """
+    return
+
+
+# Export
+@shared_task(bind=True, ignore_result=False)
+def export_tags_from_document(self, document_id: int):
+    """
+    Celery task for exporting tags from a document.
+
+    This task can only be called on documents that have tags associated
+    with them. The function basically queries the database for the tags
+    related to the document and then organizes them into a denormalized
+    table format. Each row in the table will represent a tag and its
+    associated data. Therefore the document number will be repeated
+    for each tag. This is inline with BAB's general document control
+    strategy.
+
+    This function may be used on its own or as part of a batch export
+    process. The function will return a CSV file containing the tags
+    and their associated data. It is expected for the user to download
+    the file from the server.
+
+    Args:
+        document_id (int): The ID of the document to export tags from.
+
+    Returns:
+        The path to the CSV file containing the tags and their associated data.
+    """
+    return
+
+
+@shared_task(bind=True, ignore_result=False)
+def export_annotated_document(self, document_id: int):
+    """
+    Celery task for exporting an annotated document.
+
+    This task can only be called on documents that have tags associated
+    with them. The function will call a handler which will write the tags
+    of the document on to the PDF file at the detection location using
+    bounding box coordinates. The text will be invisible.
+
+    This function may be used on its own or as part of a batch export
+    process. The function will return a PDF file containing the
+    annotations and their associated data. It is expected for the user
+    to download the file(s) from the server.
+
+    Args:
+        document_id (int): The ID of the document to export tags from.
+
+    Returns:
+        The path to the reconstructed PDF file.
+    """
+    return
