@@ -44,7 +44,7 @@ def handle_batch_document_detections(
                 f"No documents found matching vessel_id: {vessel_id} and "
                 f"department_origin: '{department_origin}'."
             )
-            return []
+            return None
 
         logger.info(
             f"Found {len(document_ids)} documents. Dispatching OCR "

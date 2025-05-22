@@ -127,11 +127,49 @@
             <div class="card-footer bg-light py-3">
                 <small class="text-muted">
                     <i class="fas fa-info-circle me-1"></i>
-                    Detections will be processed in the background. You can
-                    monitor progress on the documents page.
+                    Detections will be processed in the background.
                 </small>
             </div>
         </div>
     </div>
 </div>
+
+<!-- No Documents Found Modal -->
+<div class="modal fade" id="noDocumentsModal" tabindex="-1"
+    aria-labelledby="noDocumentsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="noDocumentsModalLabel">
+                    <i
+                        class="fas fa-exclamation-triangle text-warning me-2"></i>
+                    No Documents Found
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>No documents were found matching the selected Vessel and
+                    Department Origin.</p>
+                <p>Please try different criteria or upload new documents.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ block.super }}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        {% if show_no_documents_modal %}
+        var noDocumentsModal = new bootstrap.Modal(document.getElementById('noDocumentsModal'), {});
+        noDocumentsModal.show();
+        {% endif %}
+    });
+</script>
 {% endblock %}

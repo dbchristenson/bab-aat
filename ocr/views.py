@@ -292,6 +292,7 @@ def detect_by_origin(request):
         vessel: (optional) Vessel id to filter on.
         department_origin: (optional) Department origin to filter on.
     """
+    show_no_documents_modal = False
     if request.method == "POST":
         form = DetectByOriginForm(request.POST)
         if form.is_valid():
@@ -304,20 +305,25 @@ def detect_by_origin(request):
                 f"origin: {department_origin}, "
                 f"config: {config.name}"
             )
-            handle_batch_document_detections(
+            task_results = handle_batch_document_detections(
                 vessel_id=vessel.id,
                 department_origin=department_origin,
                 config_id=config.id,
             )
 
-            return redirect("ocr:documents")
+            if not task_results:
+                show_no_documents_modal = True
+            elif isinstance(task_results, list) and not task_results:
+                pass
+            else:
+                return redirect("ocr:documents:detect:success")
     else:
         form = DetectByOriginForm()
 
     return render(
         request,
         "detect_by_origin.html",
-        {"form": form},
+        {"form": form, "show_no_documents_modal": show_no_documents_modal},
     )
 
 
