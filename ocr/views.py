@@ -316,7 +316,7 @@ def detect_by_origin(request):
             elif isinstance(task_results, list) and not task_results:
                 pass
             else:
-                return redirect("ocr:documents:detect:success")
+                return redirect("ocr:detect_success")
     else:
         form = DetectByOriginForm()
 
