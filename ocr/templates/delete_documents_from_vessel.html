@@ -2,56 +2,82 @@
 {% load static %}
 
 {% block title %} BAB OCR Delete {% endblock %}
+
 {% block css %}
-<link rel="stylesheet" type="text/css" href="{% static 'css/delete_documents_from_vessel.css' %}">
+<link rel="stylesheet" type="text/css"
+    href="{% static 'css/delete_documents_from_vessel.css' %}">
 {% endblock %}
+
 {% block content %}
-<div class="card-body">
-    <form method="post" enctype="multipart/form-data"
-        class="needs-validation {% if form.errors %}was-validated{% endif %}" novalidate>
-        {% csrf_token %}
-
-        <!-- Non-field errors -->
-        {% if form.non_field_errors %}
-        <div class="alert alert-danger">
-            {% for error in form.non_field_errors %}
-            {{ error }}
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        <!-- Vessel Field -->
-        <div class="mb-4">
-            <label for="{{ form.vessel.id_for_label }}" class="form-label fw-bold">
-                <i class="fas fa-ship me-2 text-primary"></i>
-                Select Vessel
-            </label>
-
-            <div class="input-group">
-                {{ form.vessel }}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-danger text-white py-3">
+                <h2 class="h5 mb-0">
+                    <i class="fas fa-trash-alt me-2"></i>Delete Documents by
+                    Vessel
+                </h2>
             </div>
 
-            {% if form.vessel.help_text %}
-            <div class="form-text mt-2">
-                {{ form.vessel.help_text }}
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data"
+                    class="needs-validation {% if form.errors %}was-validated{% endif %}"
+                    novalidate>
+                    {% csrf_token %}
+
+                    <!-- Non-field errors -->
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        {{ error }}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Vessel Field -->
+                    <div class="mb-4">
+                        <label for="{{ form.vessel.id_for_label }}"
+                            class="form-label fw-bold">
+                            <i class="fas fa-ship me-2 text-primary"></i>
+                            Select Vessel
+                        </label>
+
+                        <div class="input-group">
+                            {{ form.vessel }}
+                        </div>
+
+                        {% if form.vessel.help_text %}
+                        <div class="form-text mt-2">
+                            {{ form.vessel.help_text }}
+                        </div>
+                        {% endif %}
+
+                        {% if form.vessel.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.vessel.errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="fas fa-trash me-2"></i>Delete All
+                            Documents from Selected Vessel
+                        </button>
+                    </div>
+                </form>
             </div>
-            {% endif %}
 
-            {% if form.vessel.errors %}
-            <div class="invalid-feedback d-block">
-                {% for error in form.vessel.errors %}
-                {{ error }}
-                {% endfor %}
+            <div class="card-footer bg-light py-3">
+                <small class="text-muted">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Warning: This action is irreversible and will delete all
+                    documents associated with the selected vessel.
+                </small>
             </div>
-            {% endif %}
         </div>
-
-
-        <div class="d-grid">
-            <button type="submit" class="btn btn-danger, btn-lg">
-                <i class="fas fa-trash me-2"></i>Delete
-            </button>
-        </div>
-    </form>
+    </div>
 </div>
 {% endblock %}
