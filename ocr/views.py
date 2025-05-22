@@ -6,8 +6,12 @@ from loguru import logger
 
 from ocr.forms import (
     DeleteDocumentsFromVesselForm,
+    DetectByOriginForm,
     OCRConfigForm,
     UploadFileForm,
+)
+from ocr.main.inference.handle_batch_detections import (
+    handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.draw_detections import draw_detections
@@ -268,10 +272,63 @@ def create_ocr_config(request):
         form = OCRConfigForm(request.POST)
         if form.is_valid():
             form.save()
-            # Add success message
-            return redirect(
-                "ocr:documents",
-            )  # Redirect to a relevant page
+            return redirect("ocr:documents")
     else:
         form = OCRConfigForm()
     return render(request, "create_ocr_config.html", {"form": form})
+
+
+# DETECT
+# ------------------------------------------------------------------------------
+def detect_by_origin(request):
+    """
+    Render the form for selecting a department origin for document detection.
+
+    This form allows users to select a department origin from a list
+    of available origins. When submitted, it will trigger the detection
+    process for documents associated with the selected origin.
+
+    Query Parameters:
+        vessel: (optional) Vessel id to filter on.
+        department_origin: (optional) Department origin to filter on.
+    """
+    show_no_documents_modal = False
+    if request.method == "POST":
+        form = DetectByOriginForm(request.POST)
+        if form.is_valid():
+            logger.info("Batch detection form is valid.")
+            vessel = form.cleaned_data["vessel"]
+            department_origin = form.cleaned_data["department_origin"]
+            config = form.cleaned_data["config"]
+            logger.info(
+                f"Selected vessel: {vessel.name}, "
+                f"origin: {department_origin}, "
+                f"config: {config.name}"
+            )
+            task_results = handle_batch_document_detections(
+                vessel_id=vessel.id,
+                department_origin=department_origin,
+                config_id=config.id,
+            )
+
+            if not task_results:
+                show_no_documents_modal = True
+            elif isinstance(task_results, list) and not task_results:
+                pass
+            else:
+                return redirect("ocr:detect_success")
+    else:
+        form = DetectByOriginForm()
+
+    return render(
+        request,
+        "detect_by_origin.html",
+        {"form": form, "show_no_documents_modal": show_no_documents_modal},
+    )
+
+
+def detect_success(request):
+    """
+    Render the detection success page.
+    """
+    return render(request, "detect_success.html")

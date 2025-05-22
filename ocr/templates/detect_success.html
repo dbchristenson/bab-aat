@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Detection Initiated{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-8 col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-success text-white py-3">
+                <h2 class="h5 mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Detection Tasks
+                    Started
+                </h2>
+            </div>
+
+            <div class="card-body text-center py-4">
+                <div class="mb-4">
+                    <i class="fas fa-cogs fa-4x text-primary mb-3"></i>
+                    <h3 class="h4">Processing Document Detections</h3>
+                    <p class="text-muted mb-0">
+                        The selected documents are now being analyzed for text
+                        detections.
+                        Please wait while we process the content.
+                    </p>
+                </div>
+
+                <div class="progress mb-4" style="height: 6px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated"
+                        style="width: 100%"></div>
+                </div>
+
+                <p class="small text-muted mb-4">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Detection time depends on the number and complexity of the
+                    documents.
+                </p>
+
+                <a href="{% url 'ocr:documents' %}"
+                    class="btn btn-outline-primary">
+                    <i class="fas fa-archive me-2"></i>View All Documents
+                </a>
+            </div>
+
+            <div class="card-footer bg-light py-3 text-center">
+                <small class="text-muted">
+                    <i class="fas fa-tasks me-1"></i>
+                    You can monitor document status on the documents page.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

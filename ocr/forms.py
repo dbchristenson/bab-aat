@@ -6,7 +6,7 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import OCRConfig, Vessel
+from ocr.models import Document, OCRConfig, Vessel
 
 basic_logging(__name__)
 
@@ -126,3 +126,48 @@ class OCRConfigForm(forms.ModelForm):
             raise forms.ValidationError("Invalid JSON format.")
         # The model field will store it as a Python dict.
         return config_data
+
+
+class DetectByOriginForm(forms.Form):
+    """
+    Form for selecting a department origin for document detection.
+    This form allows users to select a department origin from a list
+    of available origins. When submitted, it will trigger the detection
+    process for documents associated with the selected origin.
+    """
+
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
+        help_text="Select the vessel associated with the documents to detect",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Get distinct department_origin values from the Document model
+        # and format them for the ChoiceField.
+        distinct_origins = (
+            Document.objects.filter(department_origin__isnull=False)
+            .values_list("department_origin", flat=True)
+            .distinct()
+            .order_by("department_origin")
+        )
+        origin_choices = [("", "— select department origin —")] + [
+            (origin, origin) for origin in distinct_origins
+        ]
+        self.fields["department_origin"].choices = origin_choices
+
+    department_origin = forms.ChoiceField(
+        # Choices will be set in __init__
+        choices=[],
+        required=True,
+        help_text="Select the department origin of the documents to detect",
+    )
+
+    config = forms.ModelChoiceField(
+        queryset=OCRConfig.objects.all(),
+        empty_label="— select OCR config —",
+        required=True,
+        help_text="Select the OCR configuration to use for detection",
+    )
