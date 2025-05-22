@@ -18,7 +18,7 @@ urlpatterns = [
     ),
     # delete
     path(
-        "documents/delete_from_vessel/",
+        "documents/delete/from_vessel/",
         views.delete_documents_from_vessel,
         name="delete_documents_from_vessel",
     ),

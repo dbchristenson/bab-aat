@@ -8,7 +8,9 @@
     <title>{% block title %}Bumi Armada OCR API{% endblock %}</title>
 
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+        rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     {% block css %}{% endblock %}
 </head>
@@ -21,8 +23,10 @@
             <a class="navbar-brand" href="/">Bumi Armada OCR API</a>
 
             <!-- Toggler / Hamburger -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
-                aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                aria-controls="mainNavbar" aria-expanded="false"
+                aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
 
@@ -45,10 +49,16 @@
                         <a class="nav-link" href="/ocr/documents">Documents</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/ocr/documents/delete/from_vessel">Delete</a>
+                        <a class="nav-link"
+                            href="/ocr/documents/delete/from_vessel">Delete</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'admin:index' %}">Admin</a>
+                        <a class="nav-link"
+                            href="{% url 'admin:index' %}">Admin</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link"
+                            href="/ocr/documents/detect/by_origin">Detect</a>
                     </li>
                     {% endblock %}
                 </ul>
@@ -63,7 +73,8 @@
         <div class="alert alert-{% if message.tags == 'error' %}accent{% else %}{{ message.tags }}{% endif %}
              alert-dismissible fade show">
             {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close"
+                data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
         {% endif %}
@@ -76,8 +87,10 @@
     </footer>
 
     <!-- Bootstrap JS + FontAwesome -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 
