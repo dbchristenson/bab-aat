@@ -25,21 +25,22 @@
 
         <!-- Vessel Field -->
         <div class="mb-4">
-            <label for="{{ form.vessel.id_for_label }}" class="form-label fw-bold">
+            <label for="{{ form.vessel.id_for_label }}"
+                class="form-label fw-bold">
                 <i class="fas fa-ship me-2 text-primary"></i>
                 Select Vessel
             </label>
-        
+
             <div class="input-group">
                 {{ form.vessel }}
             </div>
-        
+
             {% if form.vessel.help_text %}
             <div class="form-text mt-2">
                 {{ form.vessel.help_text }}
             </div>
             {% endif %}
-        
+
             {% if form.vessel.errors %}
             <div class="invalid-feedback d-block">
                 {% for error in form.vessel.errors %}
@@ -51,24 +52,52 @@
 
         <!-- Department Origin Field -->
         <div class="mb-4">
-            <label for="{{ form.department_origin.id_for_label }}" class="form-label fw-bold">
+            <label for="{{ form.department_origin.id_for_label }}"
+                class="form-label fw-bold">
                 <i class="fas fa-ship me-2 text-primary"></i>
-                Select Vessel
+                Select Department Origin Code
             </label>
-        
+
             <div class="input-group">
-                {{ form.vessel }}
+                {{ form.department_origin }}
             </div>
-        
-            {% if form.vessel.help_text %}
+
+            {% if form.department_origin.help_text %}
             <div class="form-text mt-2">
-                {{ form.vessel.help_text }}
+                {{ form.department_origin.help_text }}
             </div>
             {% endif %}
-        
-            {% if form.vessel.errors %}
+
+            {% if form.department_origin.errors %}
             <div class="invalid-feedback d-block">
-                {% for error in form.vessel.errors %}
+                {% for error in form.department_origin.errors %}
+                {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Config Field -->
+        <div class="mb-4">
+            <label for="{{ form.config.id_for_label }}"
+                class="form-label fw-bold">
+                <i class="fas fa-ship me-2 text-primary"></i>
+                Select Config
+            </label>
+
+            <div class="input-group">
+                {{ form.config }}
+            </div>
+
+            {% if form.config.help_text %}
+            <div class="form-text mt-2">
+                {{ form.config.help_text }}
+            </div>
+            {% endif %}
+
+            {% if form.config.errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.config.errors %}
                 {{ error }}
                 {% endfor %}
             </div>

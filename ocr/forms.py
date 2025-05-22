@@ -151,3 +151,10 @@ class DetectByOriginForm(forms.Form):
         required=True,
         help_text="Select the department origin of the documents to detect",
     )
+
+    config = forms.ModelChoiceField(
+        queryset=OCRConfig.objects.all(),
+        empty_label="— select OCR config —",
+        required=True,
+        help_text="Select the OCR configuration to use for detection",
+    )
