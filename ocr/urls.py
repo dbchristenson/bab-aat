@@ -31,7 +31,7 @@ urlpatterns = [
         name="trigger_document_detections",
     ),
     path(
-        "documents/detect_by_origin/",
+        "documents/detect/by_origin/",
         views.detect_by_origin,
         name="detect_by_origin",
     ),
