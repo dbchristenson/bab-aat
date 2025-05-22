@@ -38,13 +38,32 @@ class Document(models.Model):
         Vessel, related_name="documents", on_delete=models.CASCADE, null=True
     )
     document_number = models.CharField(max_length=255, null=True)
+    department_origin = models.CharField(max_length=10, blank=True)
     file = models.FileField(upload_to="documents/")
     file_size = models.IntegerField()  # in bytes
     last_modified = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def _get_department_origin(self):
+        """
+        Returns the department origin of the document.
+        """
+        if not self.document_number:
+            return ""
+
+        return self.document_number.split("-")[1].strip().upper()
+
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        """
+        Override the save method to set the department_origin field
+        based on the document_number.
+        """
+        if not self.department_origin and self.document_number:
+            self.department_origin = self._get_department_origin()
+        super().save(*args, **kwargs)
 
 
 class Page(models.Model):

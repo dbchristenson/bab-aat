@@ -45,6 +45,7 @@ def save_document(file: File, vessel_id: int) -> int | None:
     file_size = file.size
     last_modified = dt.datetime.now()  # Using current time as last_modified
     document_number = file_name.split(".")[0].strip()
+    department_origin = document_number.split("-")[1].strip().upper()
 
     if "_" in document_number:
         document_number = document_number.split("_")[0]
