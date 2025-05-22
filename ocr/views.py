@@ -6,6 +6,7 @@ from loguru import logger
 
 from ocr.forms import (
     DeleteDocumentsFromVesselForm,
+    DetectByOriginForm,
     OCRConfigForm,
     UploadFileForm,
 )
@@ -280,5 +281,38 @@ def create_ocr_config(request):
 # DETECT
 # ------------------------------------------------------------------------------
 def detect_by_origin(request):
-    """"""
-    return
+    """
+    Render the form for selecting a department origin for document detection.
+
+    This form allows users to select a department origin from a list
+    of available origins. When submitted, it will trigger the detection
+    process for documents associated with the selected origin.
+
+    Query Parameters:
+        vessel: (optional) Vessel id to filter on.
+        department_origin: (optional) Department origin to filter on.
+    """
+    if request.method == "POST":
+        form = DetectByOriginForm(request.POST)
+        if form.is_valid():
+            vessel = form.cleaned_data["vessel"]
+            department_origin = form.cleaned_data["department_origin"]
+
+            # Get all documents for the selected vessel
+            documents = Document.objects.filter(
+                vessel=vessel, department_origin=department_origin
+            )
+
+            # Trigger detection for each document
+            for document in documents:
+                get_document_detections_task.delay(document.id)
+
+            return redirect("ocr:documents")
+    else:
+        form = DetectByOriginForm()
+
+    return render(
+        request,
+        "detect_by_origin.html",
+        {"form": form},
+    )

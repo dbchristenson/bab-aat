@@ -6,7 +6,7 @@ from django import forms
 from django.core.validators import FileExtensionValidator
 
 from ocr.main.utils.loggers import basic_logging
-from ocr.models import OCRConfig, Vessel
+from ocr.models import Document, OCRConfig, Vessel
 
 basic_logging(__name__)
 
@@ -126,3 +126,28 @@ class OCRConfigForm(forms.ModelForm):
             raise forms.ValidationError("Invalid JSON format.")
         # The model field will store it as a Python dict.
         return config_data
+
+
+class DetectByOriginForm(forms.Form):
+    """
+    Form for selecting a department origin for document detection.
+    This form allows users to select a department origin from a list
+    of available origins. When submitted, it will trigger the detection
+    process for documents associated with the selected origin.
+    """
+
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
+        help_text="Select the vessel associated with the documents to detect",
+    )
+
+    department_origin = forms.ModelChoiceField(
+        queryset=Document.objects.filter(
+            department_origin__isnull=False
+        ).distinct(),
+        empty_label="— select department origin —",
+        required=True,
+        help_text="Select the department origin of the documents to detect",
+    )
