@@ -143,11 +143,24 @@ class DetectByOriginForm(forms.Form):
         help_text="Select the vessel associated with the documents to detect",
     )
 
-    department_origin = forms.ModelChoiceField(
-        queryset=Document.objects.filter(
-            department_origin__isnull=False
-        ).distinct(),
-        empty_label="— select department origin —",
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Get distinct department_origin values from the Document model
+        # and format them for the ChoiceField.
+        distinct_origins = (
+            Document.objects.filter(department_origin__isnull=False)
+            .values_list("department_origin", flat=True)
+            .distinct()
+            .order_by("department_origin")
+        )
+        origin_choices = [("", "— select department origin —")] + [
+            (origin, origin) for origin in distinct_origins
+        ]
+        self.fields["department_origin"].choices = origin_choices
+
+    department_origin = forms.ChoiceField(
+        # Choices will be set in __init__
+        choices=[],
         required=True,
         help_text="Select the department origin of the documents to detect",
     )

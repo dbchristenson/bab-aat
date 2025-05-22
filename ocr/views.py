@@ -10,6 +10,9 @@ from ocr.forms import (
     OCRConfigForm,
     UploadFileForm,
 )
+from ocr.main.inference.handle_batch_detections import (
+    handle_batch_document_detections,
+)
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.main.utils.draw_detections import draw_detections
 from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
@@ -269,10 +272,7 @@ def create_ocr_config(request):
         form = OCRConfigForm(request.POST)
         if form.is_valid():
             form.save()
-            # Add success message
-            return redirect(
-                "ocr:documents",
-            )  # Redirect to a relevant page
+            return redirect("ocr:documents")
     else:
         form = OCRConfigForm()
     return render(request, "create_ocr_config.html", {"form": form})
@@ -298,18 +298,17 @@ def detect_by_origin(request):
             logger.info("Batch detection form is valid.")
             vessel = form.cleaned_data["vessel"]
             department_origin = form.cleaned_data["department_origin"]
+            config = form.cleaned_data["config"]
             logger.info(
-                f"Selected vessel: {vessel}, origin: {department_origin}"
+                f"Selected vessel: {vessel.name}, "
+                f"origin: {department_origin}, "
+                f"config: {config.name}"
             )
-            # Get all documents for the selected vessel
-            documents = Document.objects.filter(
-                vessel=vessel, department_origin=department_origin
+            handle_batch_document_detections(
+                vessel_id=vessel.id,
+                department_origin=department_origin,
+                config_id=config.id,
             )
-            logger.info(f"Found {documents.count()} documents for detection.")
-
-            # Trigger detection for each document
-            for document in documents:
-                get_document_detections_task.delay(document.id)
 
             return redirect("ocr:documents")
     else:
