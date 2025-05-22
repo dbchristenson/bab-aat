@@ -319,3 +319,10 @@ def detect_by_origin(request):
         "detect_by_origin.html",
         {"form": form},
     )
+
+
+def detect_success(request):
+    """
+    Render the detection success page.
+    """
+    return render(request, "detect_success.html")

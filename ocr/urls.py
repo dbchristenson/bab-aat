@@ -35,4 +35,9 @@ urlpatterns = [
         views.detect_by_origin,
         name="detect_by_origin",
     ),
+    path(
+        "documents/detect/success/",
+        views.detect_success,
+        name="detect_success",
+    ),
 ]
