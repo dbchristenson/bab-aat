@@ -275,3 +275,10 @@ def create_ocr_config(request):
     else:
         form = OCRConfigForm()
     return render(request, "create_ocr_config.html", {"form": form})
+
+
+# DETECT
+# ------------------------------------------------------------------------------
+def detect_by_origin(request):
+    """"""
+    return
