@@ -6,6 +6,9 @@ from django.db import IntegrityError
 from loguru import logger
 from paddleocr import PaddleOCR
 
+from ocr.main.inference.postprocessing.handler import (
+    run_postprocessing_pipeline,
+)
 from ocr.main.intake.document_ingestion import save_document
 
 
@@ -151,6 +154,22 @@ def process_detections_to_tags(self, document_id: int):
     Returns:
         None
     """
+    logger.info(f"Initiated detection -> tag task for document {document_id}")
+
+    try:
+        # The handler will fetch detections and save tags
+        run_postprocessing_pipeline(document_id=document_id)
+        logger.info(
+            f"Completed post-processing for document_id: {document_id}"
+        )
+    except Exception as e:
+        logger.error(
+            f"Error during post-processing for document_id: {document_id}."
+            f"Error: {e}",
+            exc_info=True,
+        )
+        raise
+
     return
 
 

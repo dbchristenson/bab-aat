@@ -191,7 +191,6 @@ def analyze_document(
     document_id: int,
     ocr: PaddleOCR,
     config_id: int,
-    page_render_scale: float = 4.0,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,
 ) -> list[Detection]:
@@ -203,7 +202,6 @@ def analyze_document(
         document_id (int): The ID of the document to analyze.
         ocr (PaddleOCR): The configured OCR network.
         param_config (str): The name of the param_config or model used.
-        page_render_scale (float): Scale factor for rendering pages to images.
         figure_kwargs (dict, optional): Arguments for figure extraction.
         table_kwargs (dict, optional): Arguments for table extraction.
 
@@ -232,6 +230,14 @@ def analyze_document(
             f"OCRConfig with ID {config_id} not found. Using ID as name."
         )
         param_config_name = str(config_id)
+
+    try:
+        page_render_scale = ocr_config_model_instance.config["scale"]
+    except KeyError:
+        logger.warning(
+            f"Scale not found in OCRConfig with ID {config_id}. Using default."
+        )
+        page_render_scale = 4.0
 
     # Iterate through each page of the PDF
     for page_idx, page_obj in enumerate(pdf):
