@@ -15,21 +15,17 @@ def _handle_no_detections():
 
 def run_postprocessing_pipeline(document_id: int):
     """
-    placeholer
+    Placeholder for the postprocessing pipeline.
     """
     logger.info(f"Running postprocessing pipeline for document {document_id}")
-    document = Document.objects.get(id=document_id)  # should always exist
-    detections: list[Detection] = Detection.objects.filter(document=document)
+    detections: list[Detection] = Detection.objects.filter(
+        page__document_id=document_id
+    )
 
     if not detections.exists():
         return _handle_no_detections()
 
     for det in detections:
-        text = det.text
-        bbox = det.bbox
-        confidence = det.confidence
-        config = det.config
-        paddle_params = config["paddle"]
-        scale_param = config["scale"]
+        unscaled_bbox = ps._rescale_bbox(det.bbox, det.config.config["scale"])
 
     return None
