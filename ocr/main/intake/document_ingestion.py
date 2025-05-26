@@ -41,6 +41,18 @@ def save_document(file: File, vessel_id: int) -> int | None:
     file_size = file.size
     last_modified = dt.datetime.now()  # Using current time as last_modified
     document_number = file_name.split(".")[0].strip()
+
+    # if there is still white space within document_number, then it is abnormal
+    # and we should get the 0th element of a split on whitespace
+    if " " in document_number:
+        document_number = document_number.split()[0].strip()
+        logger.warning(
+            f"Document number '{document_number}' had whitespace; "
+            "using first element after split."
+        )
+        logger.debug(
+            f"Document number after whitespace split: {document_number}"
+        )
     try:
         department_origin = document_number.split("-")[1].strip().upper()
     except IndexError as e:
