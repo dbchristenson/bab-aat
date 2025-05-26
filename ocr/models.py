@@ -80,7 +80,7 @@ class Page(models.Model):
     document = models.ForeignKey(
         Document, related_name="pages", on_delete=models.CASCADE
     )
-    page_number = models.IntegerField()  # 0-indexed
+    page_number = models.IntegerField()  # 1-indexed
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -157,7 +157,7 @@ class Tag(models.Model):
     document = models.ForeignKey(
         Document, related_name="tags", on_delete=models.CASCADE, null=True
     )
-    page_number = models.IntegerField()  # 0-indexed
+    page_number = models.IntegerField()  # 1-indexed
     text = models.CharField(max_length=255)
     bbox = models.JSONField(
         help_text="Polygon coords [[x1,y1],…] of the merged shape"

@@ -14,7 +14,6 @@ from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
-from ocr.main.utils.draw_detections import draw_detections
 from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
 from ocr.tasks import get_document_detections as get_document_detections_task
 
