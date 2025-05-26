@@ -15,7 +15,11 @@ from ocr.models import Detection, Document, Page
 
 
 def _extract_detections_from_image(
-    image_np: np.ndarray, ocr: PaddleOCR, config_id: int, page_db_id: int
+    image_np: np.ndarray,
+    ocr: PaddleOCR,
+    config_id: int,
+    page_db_id: int,
+    min_confidence: float = 0.6,
 ) -> list[Detection]:
     """
     Get detections for a given image numpy array using the OCR network.
@@ -26,6 +30,7 @@ def _extract_detections_from_image(
         ocr (PaddleOCR): The configured OCR network.
         config_id (int): The id of the OCRConfig object used.
         page_db_id (int): The ID of the Page object this image belongs to.
+        min_confidence (float): Minimum confidence threshold for detections.
 
     Returns:
         list[Detection]: List of detection objects for the image.
@@ -51,6 +56,13 @@ def _extract_detections_from_image(
         bbox = get_bbox(line_data)
         confidence = get_confidence(line_data)
         text = get_ocr(line_data)
+
+        if confidence < min_confidence:
+            logger.debug(
+                f"[{config_id}] Line {line_idx} on page ID {page_db_id} "
+                f"has low confidence ({confidence}). Skipping."
+            )
+            continue
 
         logger.debug(
             f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
@@ -218,6 +230,9 @@ def analyze_document(
         table_kwargs = {}
 
     pdf = _get_pdf_object(document_id)
+    logger.info(
+        f"Loaded PDF document with {len(pdf)} pages for document {document_id}"
+    )  # noqa E501
     all_document_detections: list[Detection] = []
 
     from ocr.models import OCRConfig  # Local import
