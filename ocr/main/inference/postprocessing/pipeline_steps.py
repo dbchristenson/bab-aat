@@ -1,4 +1,4 @@
-def _rescale_bbox(bbox: list[list], scale_param: float) -> list:
+def rescale_bbox(bbox: list[list], scale_param: float) -> list:
     """
     Rescale the bounding box coordinates based on the scale parameter
     to fit the original image size. For example, if we scaled up using 4.0

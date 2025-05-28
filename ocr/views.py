@@ -14,7 +14,8 @@ from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
-from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
+from ocr.models import Detection, Document, OCRConfig, Page, Vessel
+from ocr.tasks import draw_ocr_results as draw_ocr_results_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
@@ -177,27 +178,26 @@ def document_detail(request, document_id):
             dets = Detection.objects.filter(page=p, config=selected_config)
             page_detections.append((p, dets))
 
-    associated_truths = Truth.objects.filter(
-        document_number=document.document_number
-    )
-    truths_list = (
-        list(associated_truths.values_list("text", flat=True))
-        if associated_truths.exists()
-        else []
-    )
+    draw_ocr = bool(page_detections)
 
     context = {
         "document": document,
         "page_detections": page_detections,
         "configs": all_configs,
         "selected_config": selected_config,
-        "truths": truths_list,
+        "draw_ocr": draw_ocr,
         "vessel": document.vessel.name if document.vessel else None,
     }
     return render(request, "document_detail.html", context)
 
 
 def trigger_document_detections(request, document_id):
+    """
+    Trigger OCR detection for a specific document using a selected OCR config.
+    This function handles the POST request to start the OCR task for the
+    specified document and config. It deletes any existing detections for
+    the document and config before starting the new OCR task.
+    """
     if request.method == "POST":
         config_id = request.POST.get("config_id")
         if not config_id:
@@ -228,6 +228,45 @@ def trigger_document_detections(request, document_id):
             )
         except Exception as e:
             logger.error(f"Error triggering OCR task: {e}")
+
+        return redirect(
+            reverse("ocr:document_detail", args=[document_id])
+            + f"?config_id={config_id}"
+        )
+    # Should not be reached via GET, or handle appropriately
+    return redirect(reverse("ocr:document_detail", args=[document_id]))
+
+
+def trigger_draw_ocr(request, document_id, config_id):
+    """
+    Trigger the drawing of OCR results for a specific document.
+    This function handles the POST request to draw OCR results on the
+    specified document's pages.
+
+    Args:
+        request: The HTTP request object.
+        document_id: The ID of the document to draw OCR results on.
+        config_id: The ID of the OCRConfig to use for drawing.
+
+    Returns:
+        Redirects to a new URL with the rendered bounding boxes of the
+        OCR results on the document's pages.
+    """
+    if request.method == "POST":
+        config_id = request.POST.get("config_id")
+        if not config_id:
+            return redirect(
+                reverse("ocr:document_detail", args=[document_id])
+            )  # noqa E501
+
+        try:
+            draw_ocr_results_task.delay(document_id, config_id)
+
+            logger.info(
+                f"Drawing OCR results for document {document_id} with config {config_id}"  # noqa E501
+            )
+        except Exception as e:
+            logger.error(f"Error triggering draw OCR: {e}")
 
         return redirect(
             reverse("ocr:document_detail", args=[document_id])

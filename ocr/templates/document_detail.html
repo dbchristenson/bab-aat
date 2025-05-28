@@ -83,9 +83,22 @@
             {% endif %}
         </div>
         <div class="col-md-3">
+            {% if draw_ocr %}
+            <form method="POST"
+                action="{% url 'ocr:trigger_draw_ocr' document_id=document.id %}"
+                class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="config_id"
+                    value="{{ selected_config.id }}">
+                <button type="submit" class="btn btn-primary w-100">
+                    Draw OCR Results
+                </button>
+            </form>
+            {% else %}
             <button type="button" class="btn btn-primary w-100 disabled">
-                yeah boi
+                No Tags Available
             </button>
+            {% endif %}
         </div>
 
     </div><!-- /.row -->

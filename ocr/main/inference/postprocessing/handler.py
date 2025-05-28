@@ -1,6 +1,6 @@
-import pipeline_steps as ps
 from loguru import logger
 
+from ocr.main.inference.postprocessing.pipeline_steps import rescale_bbox
 from ocr.models import Detection, Document, Tag
 
 
@@ -26,6 +26,6 @@ def run_postprocessing_pipeline(document_id: int):
         return _handle_no_detections()
 
     for det in detections:
-        unscaled_bbox = ps._rescale_bbox(det.bbox, det.config.config["scale"])
+        unscaled_bbox = rescale_bbox(det.bbox, det.config.config["scale"])
 
     return None

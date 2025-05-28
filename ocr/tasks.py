@@ -173,6 +173,29 @@ def process_detections_to_tags(self, document_id: int):
     return
 
 
+# Draw
+@shared_task(bind=True, ignore_result=False)
+def draw_ocr_results(self, document_id: int, config_id: int):
+    """
+    Celery task for drawing OCR results on a document.
+
+    This task will take the document and config IDs as input and will
+    draw the bounding boxes of the OCR results on the document.
+    The function will call a handler which will use the detections
+    from the given document and draw the bounding boxes on the PDF
+    file at the detection location using bounding box coordinates.
+    The text will be invisible.
+
+    Args:
+        document_id (int): The ID of the document to draw results on.
+        config_id (int): The ID of the OCRConfig object to use.
+
+    Returns:
+        None
+    """
+    return
+
+
 # Export
 @shared_task(bind=True, ignore_result=False)
 def export_tags_from_document(self, document_id: int):
