@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pymupdf
 from django.conf import settings
+from loguru import logger
 
 from ocr.main.utils.page_to_img import rotate_landscape
 from ocr.main.utils.pdf_utils import get_pdf_object
@@ -128,9 +129,15 @@ def visualize_document_results(document_id: int, config_id: int) -> list[str]:
         output_path = output_dir / output_filename
         pix.save(str(output_path))
 
+        # Verify file was created
+        if output_path.exists():
+            logger.info(f"Successfully saved image to {output_path}")
+        else:
+            logger.error(f"Failed to save image to {output_path}")
+
         # Store relative path for URL generation
         relative_path = (
-            f"ocr_results/{document_id}/" f"{config_id}/{output_filename}"
+            f"ocr_results/{document_id}/{config_id}/{output_filename}"
         )
         generated_files.append(relative_path)
 

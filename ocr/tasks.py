@@ -237,6 +237,12 @@ def draw_ocr_results(self, document_id: int, config_id: int):
             page.annotated_images[str(config_id)] = image_path
             page.save()
 
+            # Debug: Check if the file actually exists
+            full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+            logger.info(f"Image path stored: {image_path}")
+            logger.info(f"Full file path: {full_path}")
+            logger.info(f"File exists: {os.path.exists(full_path)}")
+
         logger.info(
             f"Successfully generated {len(generated_files)} annotated images"
         )
