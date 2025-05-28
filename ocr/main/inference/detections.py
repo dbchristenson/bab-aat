@@ -1,3 +1,5 @@
+import gc
+
 import numpy as np
 from loguru import logger
 from paddleocr import PaddleOCR
@@ -33,65 +35,88 @@ def _extract_detections_from_image(
     Returns:
         list[Detection]: List of detection objects for the image.
     """
-    # Perform OCR on the image
-    ocr_results = ocr.ocr(image_np, cls=True, bin=True)
-    if (
-        not ocr_results or not ocr_results[0]
-    ):  # Ensure results are not None or empty
-        logger.info(
-            f"[{config_id}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
-        )
-        return []
-
-    lines = ocr_results[0]
-
-    logger.info(
-        f"[{config_id}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
-    )
-
-    detections: list[Detection] = []
-    for line_idx, line_data in enumerate(lines):
-        bbox = get_bbox(line_data)
-        confidence = get_confidence(line_data)
-        text = get_ocr(line_data)
-
-        if confidence < min_confidence:
-            logger.debug(
-                f"[{config_id}] Line {line_idx} on page ID {page_db_id} "
-                f"has low confidence ({confidence}). Skipping."
+    try:
+        # Perform OCR on the image
+        ocr_results = ocr.ocr(image_np, cls=True, bin=True)
+        if (
+            not ocr_results or not ocr_results[0]
+        ):  # Ensure results are not None or empty
+            logger.info(
+                f"[{config_id}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
             )
-            continue
+            return []
 
-        logger.debug(
-            f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
+        lines = ocr_results[0]
+
+        logger.info(
+            f"[{config_id}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
         )
 
-        det = Detection(
-            page_id=page_db_id,  # Use the passed page_db_id
-            bbox=bbox,
-            confidence=confidence,
-            text=text,
-            config_id=config_id,
+        detections: list[Detection] = []
+        for line_idx, line_data in enumerate(lines):
+            bbox = get_bbox(line_data)
+            confidence = get_confidence(line_data)
+            text = get_ocr(line_data)
+
+            if confidence < min_confidence:
+                logger.debug(
+                    f"[{config_id}] Line {line_idx} on page ID {page_db_id} "
+                    f"has low confidence ({confidence}). Skipping."
+                )
+                continue
+
+            logger.debug(
+                f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
+            )
+
+            det = Detection(
+                page_id=page_db_id,  # Use the passed page_db_id
+                bbox=bbox,
+                confidence=confidence,
+                text=text,
+                config_id=config_id,
+            )
+            detections.append(det)
+
+        logger.info(
+            f"[{config_id}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
         )
-        detections.append(det)
 
-    logger.info(
-        f"[{config_id}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
-    )
+        return detections
 
-    return detections
+    finally:
+        # Force cleanup of OCR results
+        if "ocr_results" in locals():
+            del ocr_results
+        if "lines" in locals():
+            del lines
+        gc.collect()
 
 
-def _save_adjusted_detections(
-    detections: list[Detection], offset_x: int, offset_y: int
+def _adjust_and_save_detections(
+    detections: list[Detection],
+    offset_x: int,
+    offset_y: int,
+    page_render_scale: float,
 ) -> list[Detection]:
     """
-    Adjusts the bbox coordinates of detections by an offset and saves them.
+    Adjusts the bbox coordinates of detections and saves them.
+
+    We have two adjustments to make to the bbox:
+    1. Add the offset_x and offset_y to each point in the bbox.
+    2. Rescale the bbox points using the page_render_scale factor.
+
+    Because we scale the page to a higher resolution for rendering,
+    we need to adjust the bbox points accordingly to match the original
+    dimensions.
+
+    The bboxes are in the format [[x1,y1],[x2,y2],[x3,y3],[x4,y4]].
 
     Args:
         detections (list[Detection]): List of raw detection objects.
         offset_x (int): The x-coordinate offset to add to bbox points.
         offset_y (int): The y-coordinate offset to add to bbox points.
+        page_render_scale (float): Upscaling factor for getting detections.
 
     Returns:
         list[Detection]: List of saved detection objects with adjusted bboxes.
@@ -100,6 +125,11 @@ def _save_adjusted_detections(
     for det in detections:
         # Adjust bbox: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
         adjusted_bbox = [[p[0] + offset_x, p[1] + offset_y] for p in det.bbox]
+        # Rescale bbox points
+        adjusted_bbox = [
+            [p[0] / page_render_scale, p[1] / page_render_scale]
+            for p in adjusted_bbox
+        ]
         det.bbox = adjusted_bbox
         det.save()
         saved_detections.append(det)
@@ -226,19 +256,29 @@ def analyze_document(
             page_db.id,
         )
 
-        saved_figure_dets = _save_adjusted_detections(
-            figure_dets, figure_offset[0], figure_offset[1]
+        saved_figure_dets = _adjust_and_save_detections(
+            figure_dets, figure_offset[0], figure_offset[1], page_render_scale
         )
-        saved_table_dets = _save_adjusted_detections(
-            table_dets, table_offset[0], table_offset[1]
+        saved_table_dets = _adjust_and_save_detections(
+            table_dets, table_offset[0], table_offset[1], page_render_scale
         )
 
         all_document_detections.extend(saved_figure_dets)
         all_document_detections.extend(saved_table_dets)
 
+        # Memory cleanup after each page
+        del figure_im, table_im, figure_dets, table_dets
+        del saved_figure_dets, saved_table_dets
+        gc.collect()
+
         page_obj.close()
 
     pdf.close()
+
+    # Final cleanup
+    del pdf
+    gc.collect()
+
     logger.info(
         f"[{param_config_name}] Completed document {document_id}. "
         f"Total detections: {len(all_document_detections)}"

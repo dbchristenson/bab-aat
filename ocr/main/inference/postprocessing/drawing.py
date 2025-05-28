@@ -4,31 +4,26 @@ import pymupdf
 from django.conf import settings
 from loguru import logger
 
-from ocr.main.utils.page_to_img import rotate_landscape
 from ocr.main.utils.pdf_utils import get_pdf_object
 from ocr.models import Detection, Page
 
 
 def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
     """
-    Load the PDF document and rotate it to landscape orientation.
+    Load the PDF document WITHOUT rotating it.
 
     Args:
         document_id (int): The ID of the document.
 
     Returns:
-        list[pymupdf.Page]: The loaded and rotated PDF document.
+        list[pymupdf.Page]: The loaded PDF document pages.
     """
     pdf = get_pdf_object(document_id, pdf_lib="pymupdf")
 
-    rotated_pages = []
-
-    # Rotate all pages to landscape
-    for page in pdf:
-        rotated_page = rotate_landscape(page, pdf_lib="pymupdf")
-        rotated_pages.append(rotated_page)
-
-    return rotated_pages
+    # Return pages without rotation to maintain coordinate consistency
+    # The OCR was performed on rotated pages, but we need to account for this
+    # in our coordinate transformation instead of rotating the output pages
+    return list(pdf)
 
 
 def _draw_bboxes_on_page(
@@ -39,48 +34,66 @@ def _draw_bboxes_on_page(
 ):
     """
     Draw bounding boxes for detections on a specific page.
-
-    Args:
-        page (pymupdf.Page): The PyMuPDF page to draw on.
-        page_obj (Page): Django Page model instance.
-        config_id (int): The OCR config ID to filter detections.
-        render_scale (float): Scale factor used for rendering the page.
     """
-    from ocr.models import OCRConfig
-
     # Get detections for this page and config
     detections = Detection.objects.filter(page=page_obj, config_id=config_id)
 
-    # Get the original OCR scale from config
-    config = OCRConfig.objects.get(id=config_id)
-    ocr_scale = config.config.get("scale", 4.0)
+    if not detections.exists():
+        logger.info(f"No detections found for page {page_obj.page_number}")
+        return
 
-    for detection in detections:
-        # Bbox format: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+    # Get page dimensions
+    page_rect = page.rect
+    page_width = page_rect.width
+    page_height = page_rect.height
+
+    logger.info(
+        f"Page {page_obj.page_number} dimensions: {page_width}x{page_height}"
+    )
+    logger.info(f"Render scale: {render_scale}")
+
+    for i, detection in enumerate(detections):
         bbox_points = detection.bbox
 
-        # Convert to rectangle coordinates and scale appropriately
-        # The bbox was saved at ocr_scale, but we're rendering at render_scale
-        scale_factor = render_scale / ocr_scale
+        # Get min/max from bbox (coordinates at original scale)
+        x_coords = [point[0] for point in bbox_points]
+        y_coords = [point[1] for point in bbox_points]
 
-        x_coords = [point[0] * scale_factor for point in bbox_points]
-        y_coords = [point[1] * scale_factor for point in bbox_points]
+        # Simple scaling by render factor
+        x1 = min(x_coords) * render_scale
+        x2 = max(x_coords) * render_scale
+        y1 = min(y_coords) * render_scale
+        y2 = max(y_coords) * render_scale
 
-        x1, x2 = min(x_coords), max(x_coords)
-        y1, y2 = min(y_coords), max(y_coords)
+        # Clamp coordinates to render bounds
+        render_width = page_width * render_scale
+        render_height = page_height * render_scale
+        x1 = max(0, min(x1, render_width))
+        x2 = max(0, min(x2, render_width))
+        y1 = max(0, min(y1, render_height))
+        y2 = max(0, min(y2, render_height))
 
-        # Create rectangle from bbox coordinates
+        if i < 5:  # Log first few detections for debugging
+            logger.debug(f"Detection {i}: '{detection.text[:20]}'")
+            logger.debug(f"  Original bbox: {bbox_points}")
+            logger.debug(
+                f"  Render rect: ({x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f})"
+            )
+
+        # Create rectangle from coordinates
         rect = pymupdf.Rect(x1, y1, x2, y2)
 
         # Draw rectangle (red border, no fill)
         page.draw_rect(rect, color=(1, 0, 0), width=2)
 
-        # Optional: Add text label
+        # Add text label above the bbox
         if detection.text and len(detection.text.strip()) > 0:
-            # Position text slightly above the bbox
-            text_point = pymupdf.Point(x1, y1 - 5)
+            text_point = pymupdf.Point(x1, max(y1 - 10, 10))
             page.insert_text(
-                text_point, detection.text[:20], fontsize=8, color=(1, 0, 0)
+                text_point,
+                f"{i}: {detection.text[:15]}",
+                fontsize=8,
+                color=(1, 0, 0),
             )
 
 
