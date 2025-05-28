@@ -2,7 +2,8 @@ import pymupdf
 
 from ocr.main.inference.postprocessing.pipeline_steps import _rescale_bbox
 from ocr.main.utils.page_to_img import rotate_landscape
-from ocr.models import Document
+from ocr.main.utils.pdf_utils import get_pdf_object
+from ocr.models import Detection
 
 
 def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
@@ -15,15 +16,9 @@ def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
     Returns:
         list[pymupdf.Page]: The loaded and rotated PDF document.
     """
-    document = Document.objects.get(id=document_id)
+    pdf = get_pdf_object(document_id, pdf_lib="pymupdf")
 
     rotated_pages = []
-
-    # Load the PDF file
-    try:
-        with document.file.open("rb") as pdf_file:
-            pdf_bytes = pdf_file.read()
-
 
     # Rotate all pages to landscape
     for page in pdf:

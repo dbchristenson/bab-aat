@@ -1,13 +1,12 @@
 import cv2 as cv
 import numpy as np
 from loguru import logger
-from pypdfium2 import PdfDocument
 
 from ocr.main.utils.page_to_img import rotate_landscape
 from ocr.models import Document
 
 
-def get_pdf_object(document_id: int) -> PdfDocument:
+def get_pdf_object(document_id: int, pdf_lib: str = "pypdfium2"):
     """
     Get the PDF document object for a given document ID.
 
@@ -29,8 +28,18 @@ def get_pdf_object(document_id: int) -> PdfDocument:
     try:
         with document.file.open("rb") as f:  # Open in binary read mode
             pdf_bytes = f.read()
+
         logger.info(f"Read {len(pdf_bytes)} bytes from document {document_id}")
-        pdf = PdfDocument(pdf_bytes)  # Load from bytes
+
+        if pdf_lib == "pymupdf":
+            import pymupdf
+
+            pdf = pymupdf.open(stream=pdf_bytes, filetype="pdf")
+        elif pdf_lib == "pypdfium2":
+            from pypdfium2 import PdfDocument
+
+            pdf = PdfDocument(pdf_bytes)  # Load from bytes
+
         logger.info(f"Successfully loaded PDF for document {document_id}")
         return pdf
     except Exception as e:
