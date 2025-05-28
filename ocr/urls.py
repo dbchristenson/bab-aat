@@ -40,4 +40,10 @@ urlpatterns = [
         views.detect_success,
         name="detect_success",
     ),
+    # draw
+    path(
+        "documents/<int:document_id>/draw/",
+        views.trigger_draw_ocr,
+        name="trigger_draw_ocr",
+    ),
 ]

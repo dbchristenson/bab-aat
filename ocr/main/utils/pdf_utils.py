@@ -62,7 +62,7 @@ def page_to_image(page_obj, page_render_scale: float = 4.0):
         PIL.Image: The rendered image of the page.
     """
     # Render the page to an image
-    page_obj = rotate_landscape(page_obj)
+    page_obj = rotate_landscape(page_obj, pdf_lib="pypdfium2")
     page_bitmap = page_obj.render(scale=page_render_scale)
     page_pil = page_bitmap.to_pil()
     image_np = np.array(page_pil)

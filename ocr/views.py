@@ -150,7 +150,7 @@ def documents(request):
 
 def document_detail(request, document_id):
     """
-    Render the document detail page.
+    Render the document detail page with OCR results and annotated images.
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
@@ -172,17 +172,28 @@ def document_detail(request, document_id):
     document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
-    page_detections = []
+    page_data = []
     if selected_config:
-        for p in pages:
-            dets = Detection.objects.filter(page=p, config=selected_config)
-            page_detections.append((p, dets))
+        for page in pages:
+            detections = Detection.objects.filter(
+                page=page, config=selected_config
+            )
+            annotated_image_url = page.get_annotated_image_url(
+                selected_config.id
+            )
+            page_data.append(
+                {
+                    "page": page,
+                    "detections": detections,
+                    "annotated_image_url": annotated_image_url,
+                }
+            )
 
-    draw_ocr = bool(page_detections)
+    draw_ocr = bool(any(data["detections"] for data in page_data))
 
     context = {
         "document": document,
-        "page_detections": page_detections,
+        "page_data": page_data,
         "configs": all_configs,
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
@@ -218,8 +229,32 @@ def trigger_document_detections(request, document_id):
             Detection.objects.filter(
                 page_id__in=page_ids, config=config
             ).delete()
+
+            # Clear annotated images for this config from all pages
+            pages = Page.objects.filter(document=document)
+            for page in pages:
+                if (
+                    page.annotated_images
+                    and str(config_id) in page.annotated_images
+                ):
+                    # Remove the file if it exists
+                    import os
+
+                    from django.conf import settings
+
+                    old_image_path = page.annotated_images[str(config_id)]
+                    full_path = os.path.join(
+                        settings.MEDIA_ROOT, old_image_path
+                    )
+                    if os.path.exists(full_path):
+                        os.remove(full_path)
+
+                    # Remove from the JSON field
+                    del page.annotated_images[str(config_id)]
+                    page.save()
+
             logger.info(
-                f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
+                f"Deleted existing detections and images for document {document.id} and config {config.name}"  # noqa E501
             )
 
             get_document_detections_task.delay(document.id, config.id)
@@ -237,7 +272,7 @@ def trigger_document_detections(request, document_id):
     return redirect(reverse("ocr:document_detail", args=[document_id]))
 
 
-def trigger_draw_ocr(request, document_id, config_id):
+def trigger_draw_ocr(request, document_id):
     """
     Trigger the drawing of OCR results for a specific document.
     This function handles the POST request to draw OCR results on the
@@ -246,33 +281,34 @@ def trigger_draw_ocr(request, document_id, config_id):
     Args:
         request: The HTTP request object.
         document_id: The ID of the document to draw OCR results on.
-        config_id: The ID of the OCRConfig to use for drawing.
 
     Returns:
-        Redirects to a new URL with the rendered bounding boxes of the
-        OCR results on the document's pages.
+        Redirects to the document detail page where results can be viewed
+        once the asynchronous task is complete.
     """
     if request.method == "POST":
         config_id = request.POST.get("config_id")
-        if not config_id:
-            return redirect(
-                reverse("ocr:document_detail", args=[document_id])
-            )  # noqa E501
 
         try:
+            # Queue the drawing task
             draw_ocr_results_task.delay(document_id, config_id)
 
             logger.info(
-                f"Drawing OCR results for document {document_id} with config {config_id}"  # noqa E501
+                f"Drawing OCR results task queued for document {document_id} with config {config_id}"  # noqa E501
+            )
+
+            return redirect(
+                reverse("ocr:document_detail", args=[document_id])
+                + f"?config_id={config_id}"
             )
         except Exception as e:
             logger.error(f"Error triggering draw OCR: {e}")
+            return redirect(
+                reverse("ocr:document_detail", args=[document_id])
+                + f"?config_id={config_id}"
+            )
 
-        return redirect(
-            reverse("ocr:document_detail", args=[document_id])
-            + f"?config_id={config_id}"
-        )
-    # Should not be reached via GET, or handle appropriately
+    # For GET requests or other methods
     return redirect(reverse("ocr:document_detail", args=[document_id]))
 
 

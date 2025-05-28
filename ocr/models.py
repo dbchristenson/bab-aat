@@ -69,12 +69,13 @@ class Document(models.Model):
 
 class Page(models.Model):
     """
-    A page is an image of a document. Page numbers are 0-indexed.
+    A page is an image of a document. Page numbers are 1-indexed.
 
     Params:
         document (Document): The document to which this page belongs.
-        page_number (int): The page number of the document (0-indexed).
+        page_number (int): The page number of the document (1-indexed).
         created_at (datetime): The date when the page was created.
+        annotated_images (JSON): Dict storing annotated image paths per config.
     """
 
     document = models.ForeignKey(
@@ -82,9 +83,19 @@ class Page(models.Model):
     )
     page_number = models.IntegerField()  # 1-indexed
     created_at = models.DateTimeField(auto_now_add=True)
+    annotated_images = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"{self.document.name} - Page {self.page_number}"
+
+    def get_annotated_image_url(self, config_id):
+        """Get the URL for the annotated image for a specific config."""
+        from django.conf import settings
+
+        image_path = self.annotated_images.get(str(config_id))
+        if image_path:
+            return f"{settings.MEDIA_URL}{image_path}"
+        return None
 
 
 class OCRConfig(models.Model):

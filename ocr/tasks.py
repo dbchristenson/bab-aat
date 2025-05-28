@@ -184,16 +184,67 @@ def draw_ocr_results(self, document_id: int, config_id: int):
     The function will call a handler which will use the detections
     from the given document and draw the bounding boxes on the PDF
     file at the detection location using bounding box coordinates.
-    The text will be invisible.
+    The generated annotated images are saved to media storage.
 
     Args:
         document_id (int): The ID of the document to draw results on.
         config_id (int): The ID of the OCRConfig object to use.
 
     Returns:
-        None
+        dict: Task result with status and number of files generated.
     """
-    return
+    from django.conf import settings
+
+    from ocr.main.inference.postprocessing.drawing import (
+        visualize_document_results,
+    )
+    from ocr.models import Page
+
+    try:
+        logger.info(
+            f"Starting draw OCR results for document {document_id}, config {config_id}"  # noqa: E501
+        )
+
+        # Clear existing annotated images for this config from all pages
+        pages = Page.objects.filter(document_id=document_id)
+        for page in pages:
+            if (
+                page.annotated_images
+                and str(config_id) in page.annotated_images
+            ):
+                # Remove the file if it exists
+                old_image_path = page.annotated_images[str(config_id)]
+                full_path = os.path.join(settings.MEDIA_ROOT, old_image_path)
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+
+                # Remove from the JSON field
+                del page.annotated_images[str(config_id)]
+                page.save()
+
+        # Generate annotated images
+        generated_files = visualize_document_results(document_id, config_id)
+
+        # Update Page models with image paths
+        pages = Page.objects.filter(document_id=document_id).order_by(
+            "page_number"
+        )
+
+        for page, image_path in zip(pages, generated_files):
+            # Update the annotated_images field
+            if not page.annotated_images:
+                page.annotated_images = {}
+            page.annotated_images[str(config_id)] = image_path
+            page.save()
+
+        logger.info(
+            f"Successfully generated {len(generated_files)} annotated images"
+        )
+        return {"status": "success", "files_generated": len(generated_files)}
+
+    except Exception as e:
+        logger.error(f"Error in draw_ocr_results task: {e}", exc_info=True)
+        raise
 
 
 # Export

@@ -1,16 +1,36 @@
+from typing import Union
+
 import PIL as pil
 import pypdfium2 as pdfium
 from PIL import ImageOps
 
+try:
+    import pymupdf
+except ImportError:
+    pymupdf = None
 
-def rotate_landscape(page: pdfium.PdfPage) -> pdfium.PdfPage:
+
+def rotate_landscape(
+    page: Union[pdfium.PdfPage, "pymupdf.Page"], pdf_lib: str = "pypdfium2"
+) -> Union[pdfium.PdfPage, "pymupdf.Page"]:
     """
     This function rotates the page into landscape orientation.
     """
-    p_w, p_h = page.get_size()
+    if pdf_lib == "pymupdf":
+        # For pymupdf, get page dimensions using rect
+        rect = page.rect
+        p_w, p_h = rect.width, rect.height
 
-    if p_h > p_w:
-        page.set_rotation(270)
+        # Check if page is in portrait orientation and rotate if needed
+        if p_h > p_w:
+            # Rotate 90 degrees counterclockwise to make it landscape
+            page.set_rotation(90)
+
+    elif pdf_lib == "pypdfium2":
+        # For pypdfium2, use the original logic
+        p_w, p_h = page.get_size()
+        if p_h > p_w:
+            page.set_rotation(270)
 
     return page
 
@@ -24,7 +44,7 @@ def create_img_and_pad_divisible_by_32(
     divisible by 32.
     """
     # Rotate the page into landscape orientation if needed
-    page = rotate_landscape(page)
+    page = rotate_landscape(page, pdf_lib="pypdfium2")
 
     # Render the page with the given scale
     bitmap = page.render(scale=scale)
