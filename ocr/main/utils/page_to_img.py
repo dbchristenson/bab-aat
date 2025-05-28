@@ -1,18 +1,14 @@
 from typing import Union
 
 import PIL as pil
+import pymupdf
 import pypdfium2 as pdfium
 from PIL import ImageOps
 
-try:
-    import pymupdf
-except ImportError:
-    pymupdf = None
-
 
 def rotate_landscape(
-    page: Union[pdfium.PdfPage, "pymupdf.Page"], pdf_lib: str = "pypdfium2"
-) -> Union[pdfium.PdfPage, "pymupdf.Page"]:
+    page: Union[pdfium.PdfPage, pymupdf.Page], pdf_lib: str = "pypdfium2"
+) -> Union[pdfium.PdfPage, pymupdf.Page]:
     """
     This function rotates the page into landscape orientation.
     """
