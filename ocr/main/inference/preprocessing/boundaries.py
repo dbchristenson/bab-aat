@@ -16,15 +16,11 @@ Useable functions:
         - table_crop (np.ndarray): Cropped table image.
 """
 
-import logging
 import math  # For checking non-finite numbers
 
 import cv2 as cv
 import numpy as np
-
-from ocr.main.utils.loggers import basic_logging
-
-basic_logging(__name__)
+from loguru import logger
 
 # --- Helper Functions ---
 
@@ -211,7 +207,7 @@ def _figure_extraction(img: np.ndarray, **kwargs):
     contours = _find_contours(img)
 
     if not contours:
-        logging.warning(
+        logger.warning(
             "No contours found in the image. Using fallback of entire image."
         )
         contours = (
@@ -240,7 +236,7 @@ def _figure_extraction(img: np.ndarray, **kwargs):
     )
 
     if not contour_candidates:
-        logging.warning("No significant inner boundary found. Using fallback.")
+        logger.warning("No significant inner boundary found. Using fallback.")
         sorted_contours = sorted(contours, key=cv.contourArea, reverse=True)
         best_candidate = sorted_contours[0]
     else:
@@ -272,11 +268,11 @@ def _table_extraction(img, figure_bbox, **kwargs):
     # and trim the top and bottom of the image to the figure bbox
     fx, fy, fw, fh = figure_bbox
 
-    logging.debug(f"Figure BBox: {figure_bbox}, Image Shape: {img.shape}")
+    logger.debug(f"Figure BBox: {figure_bbox}, Image Shape: {img.shape}")
     ih, iw = img.shape
 
     table_bbox = fx + fw, fy, iw - (fx + fw), fh
-    logging.debug(f"Table BBox: {table_bbox}")
+    logger.debug(f"Table BBox: {table_bbox}")
 
     if kwargs.get("show_bbox", False):
         _draw_bbox_on_image(img, table_bbox)
@@ -335,12 +331,12 @@ def _extract_crop_and_offset(
             if (
                 crop.size == 0
             ):  # Should be redundant if previous check is robust
-                logging.warning(
+                logger.warning(
                     f"{item_name.capitalize()} crop for bbox {bbox}=empty im."
                 )
                 crop = None
         else:
-            logging.warning(
+            logger.warning(
                 f"{item_name} bbox {bbox} resulted in non-positive slice "
                 f"dimensions after clipping: (x_start={slice_x_start}, "
                 f"y_start={slice_y_start}, width={slice_x_end-slice_x_start}, "
@@ -348,7 +344,7 @@ def _extract_crop_and_offset(
             )
             # crop remains None
     else:
-        logging.debug(
+        logger.debug(
             f"{item_name.capitalize()} bbox {bbox} has zero/negative "
             / "dimensions or is entirely outside image. No crop generated."
         )
@@ -381,30 +377,30 @@ def find_significant_inner_boundary(
     Returns:
         list: A list containing the identified boundary contour, or empty list.
     """
-    logging.info("\n--- Finding significant inner boundary ---")
+    logger.info("\n--- Finding significant inner boundary ---")
     if not all_contours:
-        logging.warning("Warning: No contours provided.")
+        logger.warning("Warning: No contours provided.")
         return []
 
     try:
         h_img, w_img = _get_image_dimensions(img)
     except ValueError as e:
-        logging.error(f"Error getting image dimensions: {e}")
+        logger.error(f"Error getting image dimensions: {e}")
         return []
 
-    logging.debug(f"Image Dimensions (HxW): {h_img} x {w_img}")
+    logger.debug(f"Image Dimensions (HxW): {h_img} x {w_img}")
 
     min_area_thresh = _calculate_min_area_threshold(
         h_img, w_img, min_area_ratio
     )  # noqa: E501
-    logging.debug(
+    logger.debug(
         f"Min Area Threshold ({min_area_ratio*100:.2f}% of total): {min_area_thresh:.2f}"  # noqa: E501
     )
 
     x_min, x_max, y_min, y_max = _calculate_edge_thresholds(
         h_img, w_img, edge_margin_ratio
     )
-    logging.debug(
+    logger.debug(
         f"Edge Thresholds: x=[{x_min:.2f}, {x_max:.2f}], y=[{y_min:.2f}, {y_max:.2f}]"  # noqa: E501
     )
 
@@ -412,12 +408,12 @@ def find_significant_inner_boundary(
     valid_contours_data = _filter_contours_by_area_and_edge(
         all_contours, min_area_thresh, x_min, x_max, y_min, y_max
     )
-    logging.debug(
+    logger.debug(
         f"Found {len(valid_contours_data)} contours after area and edge filtering."  # noqa: E501
     )
 
     if not valid_contours_data:
-        logging.warning(
+        logger.warning(
             "Warning: No valid contours remaining after initial filtering."
         )
         return []
@@ -430,23 +426,23 @@ def find_significant_inner_boundary(
     primary_candidates_data = _identify_primary_candidates(
         valid_contours_data, area_drop_off_ratio
     )
-    logging.debug(
+    logger.debug(
         f"Identified {len(primary_candidates_data)} primary candidates."
     )
 
     if not primary_candidates_data:
-        logging.warning("Warning: No primary candidates identified.")
+        logger.warning("Warning: No primary candidates identified.")
         return []
 
     # Select the smallest area contour from the primary candidates
     figure_contour_list = _select_smallest_contour(primary_candidates_data)
 
     if figure_contour_list:
-        logging.debug(
+        logger.debug(
             f"Selected inner boundary contour with area: {cv.contourArea(figure_contour_list[0]):.2f}"  # noqa: E501
         )
     else:
-        logging.warning(
+        logger.warning(
             "Warning: Could not select a final inner boundary contour from candidates."  # noqa: E501
         )
 
@@ -471,13 +467,13 @@ def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
             - table_offset (tuple[int, int]): Offset of the table crop.
     """
     if img is None or img.size == 0:
-        logging.error("Input image is None or empty.")
+        logger.error("Input image is None or empty.")
         return None, None, None, None
 
     try:
         h_img, w_img = _get_image_dimensions(img)
     except ValueError as e:
-        logging.error(f"Main extraction: invalid image dimensions: {e}")
+        logger.error(f"Main extraction: invalid image dimensions: {e}")
         return None, None, None, None
 
     fig_crop, fig_offset = None, None
@@ -495,13 +491,13 @@ def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
                 img, fig_bbox, "figure", w_img, h_img
             )
         else:
-            logging.warning("Figure extraction failed to return bbox.")
+            logger.warning("Figure extraction failed to return bbox.")
             # If no figure_bbox, can't proceed to table based on it.
             # Return what we have (all Nones if fig_bbox was critical)
             return fig_crop, tbl_crop, fig_offset, tbl_offset
 
     except Exception as e:
-        logging.exception(f"Error during figure processing: {e}")
+        logger.exception(f"Error during figure processing: {e}")
         return None, None, None, None  # Critical error
 
     # Table extraction relies on a valid figure_bbox
@@ -516,10 +512,10 @@ def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
                 img, table_bbox, "table", w_img, h_img
             )
         except Exception as e:
-            logging.exception(f"Error during table processing: {e}")
+            logger.exception(f"Error during table processing: {e}")
             # Preserve figure results, table results will be None
     else:
         # This case should ideally be caught earlier if fig_bbox is None
-        logging.warning("Figure bbox not available; table extraction skipped.")
+        logger.warning("Figure bbox not available; table extraction skipped.")
 
     return fig_crop, tbl_crop, fig_offset, tbl_offset

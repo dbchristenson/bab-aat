@@ -1,14 +1,11 @@
 import json
-import logging
 
 import magic
 from django import forms
 from django.core.validators import FileExtensionValidator
+from loguru import logger
 
-from ocr.main.utils.loggers import basic_logging
 from ocr.models import Document, OCRConfig, Vessel
-
-basic_logging(__name__)
 
 
 class UploadFileForm(forms.Form):
@@ -48,7 +45,7 @@ class UploadFileForm(forms.Form):
         # File size
         max_size = 2.5 * 1024 * 1024 * 1024  # 2.5 GB in bytes
         if file.size > max_size:
-            logging.error("File size exceeds 2.5 GB limit.")
+            logger.error("File size exceeds 2.5 GB limit.")
             raise forms.ValidationError("File size exceeds 2.5 GB limit.")
 
         # File type validation
@@ -61,7 +58,7 @@ class UploadFileForm(forms.Form):
 
         ext = file.name.split(".")[-1].lower()
         if ext not in allowed_exts:
-            logging.error(
+            logger.error(
                 f"Invalid file extension: {ext}. Allowed: {allowed_exts}"
             )
             raise forms.ValidationError(
@@ -72,7 +69,7 @@ class UploadFileForm(forms.Form):
         file.seek(0)  # Reset file pointer to the beginning after reading
 
         if mime_type not in allowed_mime_types:
-            logging.error(
+            logger.error(
                 f"Invalid MIME type: {mime_type}. Allowed: {allowed_mime_types}"  # noqa 501
             )
             raise forms.ValidationError(
