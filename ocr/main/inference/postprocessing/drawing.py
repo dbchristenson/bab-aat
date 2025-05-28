@@ -20,7 +20,10 @@ def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
     rotated_pages = []
 
     # Load the PDF file
-    pdf = pymupdf.open(document.file.path)
+    try:
+        with document.file.open("rb") as pdf_file:
+            pdf_bytes = pdf_file.read()
+
 
     # Rotate all pages to landscape
     for page in pdf:
