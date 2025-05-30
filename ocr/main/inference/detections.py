@@ -2,7 +2,6 @@ import gc
 
 import numpy as np
 from loguru import logger
-from paddleocr import PaddleOCR
 
 from ocr.main.inference.preprocessing.boundaries import figure_table_extraction
 from ocr.main.utils.extract_ocr_results import (
@@ -17,7 +16,7 @@ from ocr.models import Detection, Page
 
 def _extract_detections_from_image(
     image_np: np.ndarray,
-    ocr: PaddleOCR,
+    ocr,
     config_id: int,
     page_db_id: int,
     min_confidence: float = 0.6,
@@ -183,7 +182,7 @@ def _create_page_in_db(document_id: int, page_number: int) -> Page:
 
 def analyze_document(
     document_id: int,
-    ocr: PaddleOCR,
+    ocr,
     config_id: int,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,

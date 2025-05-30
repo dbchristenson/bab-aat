@@ -6,7 +6,6 @@ from celery import shared_task
 from django.core.files import File
 from django.db import IntegrityError
 from loguru import logger
-from paddleocr import PaddleOCR
 
 from ocr.main.inference.detections import analyze_document
 from ocr.main.inference.postprocessing.handler import (
@@ -61,7 +60,7 @@ _model_loading_lock = threading.Lock()
 _model_loading_futures = {}
 
 
-def _initialize_paddle_ocr_async(config_id: int) -> PaddleOCR:
+def _initialize_paddle_ocr_async(config_id: int):
     """
     This function handles the actual initalization of the PaddleOCR
     object. The goal of the function is to cache the PaddleOCR object
@@ -73,6 +72,8 @@ def _initialize_paddle_ocr_async(config_id: int) -> PaddleOCR:
     Returns:
         PaddleOCR: The initialized PaddleOCR object.
     """
+    from paddleocr import PaddleOCR
+
     from ocr.models import OCRConfig
 
     logger.info(f"Attempting to init PaddleOCR for config_id: {config_id}")
@@ -109,7 +110,7 @@ def _initialize_paddle_ocr_async(config_id: int) -> PaddleOCR:
         raise
 
 
-def _get_ocr_model_instance(config_id: int) -> PaddleOCR:
+def _get_ocr_model_instance(config_id: int):
     """
     Retrieves a PaddleOCR model instance from cache or initializes it.
     """
