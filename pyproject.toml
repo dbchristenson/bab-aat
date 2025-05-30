@@ -3,7 +3,7 @@ name = "bab-aat"
 version = "0.1.0"
 description = "OCR Application for BAB"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "black>=25.1.0",
     "celery[redis]>=5.5.1",
@@ -19,9 +19,8 @@ dependencies = [
     "modal>=1.0.2",
     "opencv-python>=4.11.0.86",
     "openpyxl>=3.1.5",
-    "paddleocr>=2.10.0",
-    "paddlepaddle>=3.0.0",
-    "pandas>=2.2.3",
+    "paddleocr==3.0.0",
+    "paddlepaddle==3.0.0",
     "pillow>=11.2.1",
     "psutil>=7.0.0",
     "psycopg2-binary>=2.9.10",
