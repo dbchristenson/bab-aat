@@ -275,6 +275,8 @@ def document_detail(request, document_id):
         "draw_ocr": draw_ocr,
         "vessel": document.vessel.name if document.vessel else None,
     }
+
+    logger.info(context)
     return render(request, "document_detail.html", context)
 
 

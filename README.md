@@ -9,7 +9,7 @@ Welcome to the Bumi Armada OCR API system for document processing and optical ch
 The BAB OCR API is a comprehensive document processing system that enables:
 
 - **Document Upload**: Support for PDF files and ZIP archives
-- **OCR Processing**: Configurable optical character recognition 
+- **OCR Processing**: Configurable optical character recognition
 - **Batch Operations**: Process multiple documents by vessel and department
 - **Visual Results**: Annotated images with detected text regions
 - **Export Capabilities**: Extract and export processed data

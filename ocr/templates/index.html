@@ -16,17 +16,17 @@
         margin-top: 1.5rem;
         margin-bottom: 0.75rem;
     }
-    
+
     .markdown-content h1 {
         border-bottom: 2px solid #2c3e50;
         padding-bottom: 0.5rem;
     }
-    
+
     .markdown-content h2 {
         border-bottom: 1px solid #dee2e6;
         padding-bottom: 0.25rem;
     }
-    
+
     .markdown-content code {
         background-color: #f8f9fa;
         padding: 0.2rem 0.4rem;
@@ -34,7 +34,7 @@
         font-size: 0.875em;
         color: #e83e8c;
     }
-    
+
     .markdown-content pre {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -42,13 +42,13 @@
         padding: 1rem;
         overflow-x: auto;
     }
-    
+
     .markdown-content pre code {
         background-color: transparent;
         padding: 0;
         color: inherit;
     }
-    
+
     .markdown-content blockquote {
         border-left: 4px solid #2c3e50;
         padding-left: 1rem;
@@ -57,46 +57,46 @@
         padding: 1rem;
         border-radius: 0.25rem;
     }
-    
+
     .markdown-content table {
         border-collapse: collapse;
         width: 100%;
         margin: 1rem 0;
     }
-    
+
     .markdown-content th,
     .markdown-content td {
         border: 1px solid #dee2e6;
         padding: 0.75rem;
         text-align: left;
     }
-    
+
     .markdown-content th {
         background-color: #2c3e50;
         color: white;
         font-weight: 600;
     }
-    
+
     .markdown-content ul,
     .markdown-content ol {
         padding-left: 2rem;
         margin: 1rem 0;
     }
-    
+
     .markdown-content li {
         margin-bottom: 0.5rem;
     }
-    
+
     .markdown-content a {
         color: #2c3e50;
         text-decoration: none;
     }
-    
+
     .markdown-content a:hover {
         color: #34495e;
         text-decoration: underline;
     }
-    
+
     .toc {
         background-color: #f8f9fa;
         border: 1px solid #dee2e6;
@@ -104,16 +104,16 @@
         padding: 1rem;
         margin-bottom: 2rem;
     }
-    
+
     .toc ul {
         margin: 0;
         padding-left: 1.5rem;
     }
-    
-    .toc > ul {
+
+    .toc>ul {
         padding-left: 0;
     }
-    
+
     .toc li {
         margin-bottom: 0.25rem;
     }
@@ -150,18 +150,19 @@
 
     /* Print styles */
     @media print {
+
         .card-header,
         .card-footer,
         .btn,
         .badge {
             display: none !important;
         }
-        
+
         .card {
             border: none !important;
             box-shadow: none !important;
         }
-        
+
         .markdown-content {
             font-size: 12pt;
             line-height: 1.4;
@@ -192,11 +193,13 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="card-body">
                     <p class="lead mb-0">
                         <i class="fas fa-info-circle me-2 text-primary"></i>
-                        Welcome to the Bumi Armada OCR API documentation. This guide will help you understand how to use the system for document processing and OCR analysis.
+                        Welcome to the Bumi Armada OCR API documentation. This
+                        guide will help you understand how to use the system for
+                        document processing and OCR analysis.
                     </p>
                 </div>
             </div>
@@ -212,25 +215,29 @@
                 <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-3">
-                            <a href="{% url 'ocr:upload' %}" class="btn btn-primary w-100">
+                            <a href="{% url 'ocr:upload' %}"
+                                class="btn btn-primary w-100">
                                 <i class="fas fa-file-upload me-2"></i>
                                 Upload Documents
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'ocr:documents' %}" class="btn btn-outline-primary w-100">
+                            <a href="{% url 'ocr:documents' %}"
+                                class="btn btn-outline-primary w-100">
                                 <i class="fas fa-archive me-2"></i>
                                 View Documents
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'ocr:detect_by_origin' %}" class="btn btn-outline-primary w-100">
+                            <a href="{% url 'ocr:detect_by_origin' %}"
+                                class="btn btn-outline-primary w-100">
                                 <i class="fas fa-cogs me-2"></i>
                                 Run Detection
                             </a>
                         </div>
                         <div class="col-md-3">
-                            <a href="{% url 'ocr:create_ocr_config' %}" class="btn btn-outline-secondary w-100">
+                            <a href="{% url 'ocr:create_ocr_config' %}"
+                                class="btn btn-outline-secondary w-100">
                                 <i class="fas fa-plus me-2"></i>
                                 New Config
                             </a>
@@ -245,7 +252,8 @@
                     <div class="row align-items-center">
                         <div class="col">
                             <h5 class="mb-0">
-                                <i class="fas fa-file-text me-2 text-primary"></i>
+                                <i
+                                    class="fas fa-file-text me-2 text-primary"></i>
                                 Documentation
                             </h5>
                         </div>
@@ -264,77 +272,93 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="card-body">
                     {% if markdown_error %}
-                        <!-- Error State -->
-                        <div class="alert alert-warning">
-                            <h5>
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                Documentation Not Found
-                            </h5>
-                            <p class="mb-3">{{ markdown_error }}</p>
-                            <p class="mb-0">
-                                <strong>Expected location:</strong> 
-                                <code>{{ expected_path }}</code>
-                            </p>
-                        </div>
-                        
-                        <!-- Fallback Content -->
-                        <div class="markdown-content">
-                            <h1>BAB OCR API</h1>
-                            <p>Welcome to the Bumi Armada OCR API system for document processing and text extraction.</p>
-                            
-                            <h2>Getting Started</h2>
-                            <ol>
-                                <li><strong>Upload Documents:</strong> Use the <a href="{% url 'ocr:upload' %}">Upload</a> page to submit PDF files or ZIP archives</li>
-                                <li><strong>Configure OCR:</strong> Create OCR configurations via the <a href="{% url 'ocr:create_ocr_config' %}">Config</a> page</li>
-                                <li><strong>Run Detection:</strong> Process documents using the <a href="{% url 'ocr:detect_by_origin' %}">Detection</a> interface</li>
-                                <li><strong>View Results:</strong> Check processed documents in the <a href="{% url 'ocr:documents' %}">Documents</a> section</li>
-                            </ol>
-                            
-                            <h2>Features</h2>
-                            <ul>
-                                <li>PDF document processing and text extraction</li>
-                                <li>Configurable OCR models and parameters</li>
-                                <li>Batch processing by vessel and department</li>
-                                <li>Visual annotation of detected text regions</li>
-                                <li>Export capabilities for processed data</li>
-                            </ul>
-                            
-                            <blockquote>
-                                <strong>Note:</strong> For complete documentation, please add a <code>README.md</code> file to your project root or <code>docs/</code> directory.
-                            </blockquote>
-                        </div>
+                    <!-- Error State -->
+                    <div class="alert alert-warning">
+                        <h5>
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Documentation Not Found
+                        </h5>
+                        <p class="mb-3">{{ markdown_error }}</p>
+                        <p class="mb-0">
+                            <strong>Expected location:</strong>
+                            <code>{{ expected_path }}</code>
+                        </p>
+                    </div>
+
+                    <!-- Fallback Content -->
+                    <div class="markdown-content">
+                        <h1>BAB OCR API</h1>
+                        <p>Welcome to the Bumi Armada OCR API system for
+                            document processing and text extraction.</p>
+
+                        <h2>Getting Started</h2>
+                        <ol>
+                            <li><strong>Upload Documents:</strong> Use the <a
+                                    href="{% url 'ocr:upload' %}">Upload</a>
+                                page to submit PDF files or ZIP archives</li>
+                            <li><strong>Configure OCR:</strong> Create OCR
+                                configurations via the <a
+                                    href="{% url 'ocr:create_ocr_config' %}">Config</a>
+                                page</li>
+                            <li><strong>Run Detection:</strong> Process
+                                documents using the <a
+                                    href="{% url 'ocr:detect_by_origin' %}">Detection</a>
+                                interface</li>
+                            <li><strong>View Results:</strong> Check processed
+                                documents in the <a
+                                    href="{% url 'ocr:documents' %}">Documents</a>
+                                section</li>
+                        </ol>
+
+                        <h2>Features</h2>
+                        <ul>
+                            <li>PDF document processing and text extraction</li>
+                            <li>Configurable OCR models and parameters</li>
+                            <li>Batch processing by vessel and department</li>
+                            <li>Visual annotation of detected text regions</li>
+                            <li>Export capabilities for processed data</li>
+                        </ul>
+
+                        <blockquote>
+                            <strong>Note:</strong> For complete documentation,
+                            please add a <code>README.md</code> file to your
+                            project root or <code>docs/</code> directory.
+                        </blockquote>
+                    </div>
                     {% else %}
-                        <!-- Table of Contents (if available) -->
-                        {% if toc %}
-                        <div class="toc">
-                            <h6 class="mb-3">
-                                <i class="fas fa-list me-2"></i>
-                                Table of Contents
-                            </h6>
-                            {{ toc|safe }}
-                        </div>
-                        {% endif %}
-                        
-                        <!-- Rendered Markdown Content -->
-                        <div class="markdown-content">
-                            {{ markdown_content|safe }}
-                        </div>
+                    <!-- Table of Contents (if available) -->
+                    {% if toc %}
+                    <div class="toc">
+                        <h6 class="mb-3">
+                            <i class="fas fa-list me-2"></i>
+                            Table of Contents
+                        </h6>
+                        {{ toc|safe }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Rendered Markdown Content -->
+                    <div class="markdown-content">
+                        {{ markdown_content|safe }}
+                    </div>
                     {% endif %}
                 </div>
-                
+
                 <div class="card-footer bg-light text-muted">
                     <div class="row align-items-center">
                         <div class="col">
                             <small>
                                 <i class="fas fa-info-circle me-1"></i>
-                                This documentation is automatically generated from markdown files
+                                This documentation is automatically generated
+                                from markdown files
                             </small>
                         </div>
                         <div class="col-auto">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+                            <button class="btn btn-sm btn-outline-secondary"
+                                onclick="window.print()">
                                 <i class="fas fa-print me-1"></i>
                                 Print
                             </button>
@@ -350,7 +374,7 @@
 {% block scripts %}
 <script>
     // Add smooth scrolling for anchor links
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Add smooth scrolling to all anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
@@ -364,7 +388,7 @@
                 }
             });
         });
-        
+
         // Add copy buttons to code blocks
         document.querySelectorAll('pre code').forEach(block => {
             const button = document.createElement('button');
@@ -379,7 +403,7 @@
                     button.innerHTML = '<i class="fas fa-copy"></i>';
                 }, 2000);
             };
-            
+
             const pre = block.parentNode;
             pre.style.position = 'relative';
             pre.appendChild(button);
