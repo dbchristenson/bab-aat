@@ -263,7 +263,7 @@ def document_detail(request, document_id):
     if selected_config:
         for p in pages:
             dets = Detection.objects.filter(page=p, config=selected_config)
-            page_detections.append((p, dets))
+            page_detections.append((p, dets)) if dets.exists() else None
 
             if not dets.exists():
                 logger.info(
@@ -273,9 +273,8 @@ def document_detail(request, document_id):
     else:
         logger.warning("No OCRConfig selected, no detections will be shown.")
 
-    logger.info(f"page_detection: {page_detections}")
-    logger.info(f"bool(page_detections): {bool(page_detections)}")
-    logger.info(f"len(page_detections): {len(page_detections)}")
+    # check if page_detections
+    draw_ocr = False
     draw_ocr = bool(page_detections)
 
     context = {

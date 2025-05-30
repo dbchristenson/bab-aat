@@ -245,7 +245,7 @@ def analyze_document(
             continue
 
         # Extract figure and table regions from the page image
-        figure_im, table_im, figure_offset, table_offset = (
+        figure_npd, table_npd, figure_offset, table_offset = (
             figure_table_extraction(
                 page_im,
                 figure_kwargs=figure_kwargs,
@@ -254,13 +254,13 @@ def analyze_document(
         )
 
         figure_dets = _extract_detections_from_image(
-            figure_im,
+            figure_npd,
             ocr,
             config_id,
             page_db.id,
         )
         table_dets = _extract_detections_from_image(
-            table_im,
+            table_npd,
             ocr,
             config_id,
             page_db.id,
