@@ -18,6 +18,10 @@ services:
       - ".env"
     volumes:
       - ./resources/media:/app/resources/media
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   worker:
     build:
@@ -37,6 +41,6 @@ services:
     deploy:
       resources:
         limits:
-          memory: 6G
+          memory: 10G
         reservations:
-          memory: 4G
+          memory: 2G

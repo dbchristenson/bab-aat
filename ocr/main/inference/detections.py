@@ -10,6 +10,7 @@ from ocr.main.utils.extract_ocr_results import (
     get_confidence,
     get_ocr,
 )
+from ocr.main.utils.memory import log_memory_usage, memory_context
 from ocr.main.utils.pdf_utils import get_pdf_object, page_to_image
 from ocr.models import Detection, Page
 
@@ -23,7 +24,7 @@ def _extract_detections_from_image(
 ) -> list[Detection]:
     """
     Get detections for a given image numpy array using the OCR network.
-    Detections are not saved to the database by this function.
+    Enhanced with granular memory monitoring and immediate cleanup.
 
     Args:
         image_np (np.ndarray): The image numpy array to process.
@@ -35,62 +36,79 @@ def _extract_detections_from_image(
     Returns:
         list[Detection]: List of detection objects for the image.
     """
+    log_memory_usage(f"[{config_id}] before OCR on page {page_db_id}")
+
     try:
-        # Perform OCR on the image
-        ocr_results = ocr.ocr(image_np, cls=True, bin=True)
-        if (
-            not ocr_results or not ocr_results[0]
-        ):  # Ensure results are not None or empty
-            logger.info(
-                f"[{config_id}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
-            )
+        with memory_context(
+            "ocr_inference_call", log_objects=False
+        ) as ocr_monitor:
+            ocr_results = ocr.ocr(image_np, cls=True, bin=True)
+            ocr_monitor.log_memory_delta("after OCR inference")
+
+        logger.info(f"[{config_id}] after OCR inference on page {page_db_id}")
+
+        if not ocr_results or not ocr_results[0]:
+            logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
 
         lines = ocr_results[0]
 
         logger.info(
-            f"[{config_id}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
+            f"[{config_id}] Detected {len(lines)} lines on page {page_db_id}"
         )
 
-        detections: list[Detection] = []
+        detections = []
         for line_idx, line_data in enumerate(lines):
-            bbox = get_bbox(line_data)
-            confidence = get_confidence(line_data)
-            text = get_ocr(line_data)
+            try:
+                bbox = get_bbox(line_data)
+                confidence = get_confidence(line_data)
+                text = get_ocr(line_data)
 
-            if confidence < min_confidence:
-                logger.debug(
-                    f"[{config_id}] Line {line_idx} on page ID {page_db_id} "
-                    f"has low confidence ({confidence}). Skipping."
+                if confidence < min_confidence:
+                    continue
+
+                det = Detection(
+                    page_id=page_db_id,
+                    bbox=bbox,
+                    confidence=confidence,
+                    text=text,
+                    config_id=config_id,
                 )
+                detections.append(det)
+
+                # Clean up line_data references immediately
+                del bbox, confidence, text
+
+            except Exception as e:
+                logger.error(f"Error processing line {line_idx}: {e}")
                 continue
 
-            logger.debug(
-                f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
-            )
-
-            det = Detection(
-                page_id=page_db_id,  # Use the passed page_db_id
-                bbox=bbox,
-                confidence=confidence,
-                text=text,
-                config_id=config_id,
-            )
-            detections.append(det)
-
         logger.info(
-            f"[{config_id}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
+            f"[{config_id}] Extracted {len(detections)} detections for page {page_db_id}"  # noqa E501
         )
 
         return detections
 
+    except Exception as e:
+        logger.error(
+            f"Error in OCR processing for page {page_db_id}: {e}",
+            exc_info=True,
+        )
+        log_memory_usage(f"[{config_id}] after error on page {page_db_id}")
+        return []
+
+    # Clean up
     finally:
-        # Force cleanup of OCR results
-        if "ocr_results" in locals():
-            del ocr_results
-        if "lines" in locals():
-            del lines
-        gc.collect()
+        try:
+            if ocr_results is not None:
+                del ocr_results
+            if lines is not None:
+                del lines
+
+            gc.collect()
+
+        except Exception as cleanup_error:
+            logger.error(f"Error during cleanup: {cleanup_error}")
 
 
 def _adjust_and_save_detections(
@@ -197,8 +215,6 @@ def analyze_document(
     logger.info(
         f"Loaded PDF document with {len(pdf)} pages for document {document_id}"
     )  # noqa E501
-    all_document_detections: list[Detection] = []
-
     from ocr.models import OCRConfig  # Local import
 
     try:
@@ -237,9 +253,12 @@ def analyze_document(
             )
             continue
 
+        # Extract figure and table regions from the page image
         figure_im, table_im, figure_offset, table_offset = (
             figure_table_extraction(
-                page_im, figure_kwargs=figure_kwargs, table_kwargs=table_kwargs
+                page_im,
+                figure_kwargs=figure_kwargs,
+                table_kwargs=table_kwargs,
             )
         )
 
@@ -256,32 +275,23 @@ def analyze_document(
             page_db.id,
         )
 
-        saved_figure_dets = _adjust_and_save_detections(
-            figure_dets, figure_offset[0], figure_offset[1], page_render_scale
-        )
-        saved_table_dets = _adjust_and_save_detections(
-            table_dets, table_offset[0], table_offset[1], page_render_scale
+        # Adjust and save detections
+        _adjust_and_save_detections(
+            figure_dets,
+            figure_offset[0],
+            figure_offset[1],
+            page_render_scale,
         )
 
-        all_document_detections.extend(saved_figure_dets)
-        all_document_detections.extend(saved_table_dets)
-
-        # Memory cleanup after each page
-        del figure_im, table_im, figure_dets, table_dets
-        del saved_figure_dets, saved_table_dets
-        gc.collect()
+        _adjust_and_save_detections(
+            table_dets,
+            table_offset[0],
+            table_offset[1],
+            page_render_scale,
+        )
 
         page_obj.close()
 
     pdf.close()
 
-    # Final cleanup
-    del pdf
-    gc.collect()
-
-    logger.info(
-        f"[{param_config_name}] Completed document {document_id}. "
-        f"Total detections: {len(all_document_detections)}"
-    )
-
-    return all_document_detections
+    logger.info(f"[{param_config_name}] Completed document {document_id}. ")

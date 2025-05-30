@@ -1,5 +1,8 @@
+from pathlib import Path
+
+import markdown
+from django.conf import settings
 from django.core.paginator import Paginator
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from loguru import logger
@@ -21,10 +24,94 @@ from ocr.tasks import get_document_detections as get_document_detections_task
 
 def index(request):
     """
-    Render the index page.
+    Render the index page with documentation from markdown file.
     """
+    context = {
+        "markdown_content": "",
+        "markdown_error": None,
+        "toc": None,
+        "expected_path": None,
+    }
 
-    return HttpResponse("Welcome to the OCR API!")
+    MARKDOWN_AVAILABLE = True
+    if not MARKDOWN_AVAILABLE:
+        context["markdown_error"] = (
+            "Markdown library not installed. Please run: pip install markdown"
+        )
+        context["expected_path"] = "pip install markdown"
+        return render(request, "index.html", context)
+
+    # Look for documentation files in order of preference
+    doc_paths = [
+        Path(settings.BASE_DIR) / "README.md",
+        Path(settings.BASE_DIR) / "docs" / "README.md",
+        Path(settings.BASE_DIR) / "docs" / "index.md",
+        Path(settings.BASE_DIR) / "DOCUMENTATION.md",
+        Path(settings.BASE_DIR) / "ocr" / "docs" / "README.md",
+    ]
+
+    markdown_file = None
+    for path in doc_paths:
+        if path.exists():
+            markdown_file = path
+            break
+
+    if markdown_file:
+        try:
+            # Configure markdown with extensions
+            md = markdown.Markdown(
+                extensions=[
+                    "toc",
+                    "fenced_code",
+                    "tables",
+                    "codehilite",
+                    "attr_list",
+                ],
+                extension_configs={
+                    "toc": {
+                        "permalink": True,
+                        "permalink_class": "header-link",
+                        "permalink_title": "Link to this section",
+                    },
+                    "codehilite": {
+                        "css_class": "highlight",
+                        "use_pygments": False,
+                    },
+                },
+            )
+
+            # Read and convert markdown
+            with open(markdown_file, "r", encoding="utf-8") as f:
+                markdown_text = f.read()
+
+            # Convert to HTML
+            html_content = md.convert(markdown_text)
+
+            context.update(
+                {
+                    "markdown_content": html_content,
+                    "toc": md.toc if hasattr(md, "toc") and md.toc else None,
+                }
+            )
+
+            logger.info(
+                f"Successfully loaded documentation from {markdown_file}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error reading markdown file {markdown_file}: {e}")
+            context["markdown_error"] = (
+                f"Error reading documentation file: {str(e)}"
+            )
+            context["expected_path"] = str(markdown_file)
+    else:
+        context["markdown_error"] = "No documentation file found"
+        context["expected_path"] = " or ".join(str(p) for p in doc_paths)
+        logger.warning(
+            "No documentation markdown file found in expected locations"
+        )
+
+    return render(request, "index.html", context)
 
 
 # UPLOAD
@@ -150,7 +237,7 @@ def documents(request):
 
 def document_detail(request, document_id):
     """
-    Render the document detail page with OCR results and annotated images.
+    Render the document detail page.
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
@@ -172,28 +259,17 @@ def document_detail(request, document_id):
     document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
-    page_data = []
+    page_detections = []
     if selected_config:
-        for page in pages:
-            detections = Detection.objects.filter(
-                page=page, config=selected_config
-            )
-            annotated_image_url = page.get_annotated_image_url(
-                selected_config.id
-            )
-            page_data.append(
-                {
-                    "page": page,
-                    "detections": detections,
-                    "annotated_image_url": annotated_image_url,
-                }
-            )
+        for p in pages:
+            dets = Detection.objects.filter(page=p, config=selected_config)
+            page_detections.append((p, dets))
 
-    draw_ocr = bool(any(data["detections"] for data in page_data))
+    draw_ocr = bool(page_detections)
 
     context = {
         "document": document,
-        "page_data": page_data,
+        "page_detections": page_detections,
         "configs": all_configs,
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
@@ -229,32 +305,8 @@ def trigger_document_detections(request, document_id):
             Detection.objects.filter(
                 page_id__in=page_ids, config=config
             ).delete()
-
-            # Clear annotated images for this config from all pages
-            pages = Page.objects.filter(document=document)
-            for page in pages:
-                if (
-                    page.annotated_images
-                    and str(config_id) in page.annotated_images
-                ):
-                    # Remove the file if it exists
-                    import os
-
-                    from django.conf import settings
-
-                    old_image_path = page.annotated_images[str(config_id)]
-                    full_path = os.path.join(
-                        settings.MEDIA_ROOT, old_image_path
-                    )
-                    if os.path.exists(full_path):
-                        os.remove(full_path)
-
-                    # Remove from the JSON field
-                    del page.annotated_images[str(config_id)]
-                    page.save()
-
             logger.info(
-                f"Deleted existing detections and images for document {document.id} and config {config.name}"  # noqa E501
+                f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
             )
 
             get_document_detections_task.delay(document.id, config.id)
@@ -281,34 +333,36 @@ def trigger_draw_ocr(request, document_id):
     Args:
         request: The HTTP request object.
         document_id: The ID of the document to draw OCR results on.
+        config_id: The ID of the OCRConfig to use for drawing.
 
     Returns:
-        Redirects to the document detail page where results can be viewed
-        once the asynchronous task is complete.
+        Redirects to a new URL with the rendered bounding boxes of the
+        OCR results on the document's pages.
     """
     if request.method == "POST":
         config_id = request.POST.get("config_id")
 
         try:
-            # Queue the drawing task
             draw_ocr_results_task.delay(document_id, config_id)
 
             logger.info(
-                f"Drawing OCR results task queued for document {document_id} with config {config_id}"  # noqa E501
+                f"Drawing OCR results for document {document_id} with config {config_id}"  # noqa E501
             )
 
             return redirect(
-                reverse("ocr:document_detail", args=[document_id])
-                + f"?config_id={config_id}"
+                reverse(
+                    "ocr:documenet_detail",
+                    args=[document_id] + f"?config_id={config_id}",
+                )  # noqa E501
             )
         except Exception as e:
             logger.error(f"Error triggering draw OCR: {e}")
-            return redirect(
-                reverse("ocr:document_detail", args=[document_id])
-                + f"?config_id={config_id}"
-            )
 
-    # For GET requests or other methods
+        return redirect(
+            reverse("ocr:document_detail", args=[document_id])
+            + f"?config_id={config_id}"
+        )
+    # Should not be reached via GET, or handle appropriately
     return redirect(reverse("ocr:document_detail", args=[document_id]))
 
 

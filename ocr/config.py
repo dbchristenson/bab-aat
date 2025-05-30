@@ -1,5 +1,7 @@
+import sys
 from pathlib import Path
 
+import modal
 from django.conf import settings
 from loguru import logger
 
@@ -47,7 +49,17 @@ def configure_logging(log_level: str = "INFO") -> None:
         diagnose=True,  # More detailed error messages
     )
 
+    logger.add(
+        sys.stdout,
+        level="INFO",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name}:{function}:{line} - {message}",  # noqa: E501
+    )
+
     logger.info(
         f"Loguru logging configured. Level: {log_level.upper()}. "
         f"Log file: {log_path / svc_log_name}"
     )
+
+
+def configure_modal() -> None:
+    pass

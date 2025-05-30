@@ -10,6 +10,7 @@ from ocr.main.inference.postprocessing.handler import (
     run_postprocessing_pipeline,
 )
 from ocr.main.intake.document_ingestion import save_document
+from ocr.main.utils.memory import memory_context, memory_monitor
 
 
 # Document Intake
@@ -116,6 +117,7 @@ def _get_ocr_model_instance(config_id: int) -> PaddleOCR:
 
 
 @shared_task(bind=True, ignore_result=False)
+@memory_monitor(name="get_document_detections", aggressive_cleanup=True)
 def get_document_detections(self, document_id: int, config_id: int):
     """
     Celery task to get detections for a document.
@@ -129,9 +131,12 @@ def get_document_detections(self, document_id: int, config_id: int):
     logger.info(f"Starting detection for document {document_id}")
     logger.info(f"Using config id: {config_id}")
 
+    with memory_context("load_ocr_model", log_objects=False):
+        ocr = _get_ocr_model_instance(config_id)
+
     analyze_document(
         document_id=document_id,
-        ocr=_get_ocr_model_instance(config_id),
+        ocr=ocr,
         config_id=config_id,
     )
 
