@@ -1,4 +1,6 @@
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from celery import shared_task
 from django.core.files import File
@@ -55,9 +57,11 @@ def process_pdf_task(self, disk_path: str, vessel_id: int):
 
 # OCR Detections
 _ocr_model_cache = {}
+_model_loading_lock = threading.Lock()
+_model_loading_futures = {}
 
 
-def _initialize_paddle_ocr(config_id: int) -> PaddleOCR:
+def _initialize_paddle_ocr_async(config_id: int) -> PaddleOCR:
     """
     This function handles the actual initalization of the PaddleOCR
     object. The goal of the function is to cache the PaddleOCR object
@@ -90,6 +94,7 @@ def _initialize_paddle_ocr(config_id: int) -> PaddleOCR:
         if "paddle" in paddle_params:
             paddle_params = paddle_params["paddle"]
 
+        logger.info(f"Downloading PaddleOCR model for config {config_id}")
         model = PaddleOCR(**paddle_params)
         logger.info(f"Successfully init PaddleOCR for config_id: {config_id}")
         return model
@@ -108,12 +113,39 @@ def _get_ocr_model_instance(config_id: int) -> PaddleOCR:
     """
     Retrieves a PaddleOCR model instance from cache or initializes it.
     """
-    if config_id not in _ocr_model_cache:
-        logger.info(f"OCR model for config_id '{config_id}' not in cache.")
-        _ocr_model_cache[config_id] = _initialize_paddle_ocr(config_id)
-    else:
-        logger.info(f"Reusing cached OCR model for config_id '{config_id}'.")
-    return _ocr_model_cache[config_id]
+    with _model_loading_lock:
+        # Return cached model if available
+        if config_id in _ocr_model_cache:
+            logger.info(
+                f"Reusing cached OCR model for config_id '{config_id}'."
+            )
+            return _ocr_model_cache[config_id]
+
+        # Check if model is currently being loaded
+        if config_id in _model_loading_futures:
+            logger.info("Waiting for OCR loading to complete")
+            future = _model_loading_futures[config_id]
+            # Wait for the loading to complete
+            model = future.result()  # This blocks until loading is done
+            _ocr_model_cache[config_id] = model
+            del _model_loading_futures[config_id]
+            return model
+
+        # Start loading the model in background
+        logger.info(
+            f"Starting background loading of OCR for config_id '{config_id}'."
+        )
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(_initialize_paddle_ocr_async, config_id)
+        _model_loading_futures[config_id] = future
+
+        # Wait for completion and cache the result
+        model = future.result()
+        _ocr_model_cache[config_id] = model
+        del _model_loading_futures[config_id]
+        executor.shutdown()
+
+        return model
 
 
 @shared_task(bind=True, ignore_result=False)
