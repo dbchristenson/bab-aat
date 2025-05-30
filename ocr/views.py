@@ -273,6 +273,9 @@ def document_detail(request, document_id):
     else:
         logger.warning("No OCRConfig selected, no detections will be shown.")
 
+    logger.info(f"page_detection: {page_detections}")
+    logger.info(f"bool(page_detections): {bool(page_detections)}")
+    logger.info(f"len(page_detections): {len(page_detections)}")
     draw_ocr = bool(page_detections)
 
     context = {

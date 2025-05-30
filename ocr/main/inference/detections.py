@@ -9,7 +9,6 @@ from ocr.main.utils.extract_ocr_results import (
     get_confidence,
     get_ocr,
 )
-from ocr.main.utils.memory import log_memory_usage, memory_context
 from ocr.main.utils.pdf_utils import get_pdf_object, page_to_image
 from ocr.models import Detection, Page
 
@@ -35,17 +34,9 @@ def _extract_detections_from_image(
     Returns:
         list[Detection]: List of detection objects for the image.
     """
-    log_memory_usage(f"[{config_id}] before OCR on page {page_db_id}")
 
     try:
-        with memory_context(
-            "ocr_inference_call", log_objects=False
-        ) as ocr_monitor:
-            ocr_results = ocr.ocr(image_np, cls=True, bin=True)
-            ocr_monitor.log_memory_delta("after OCR inference")
-
-        logger.info(f"[{config_id}] after OCR inference on page {page_db_id}")
-
+        ocr_results = ocr.predict(image_np)
         if not ocr_results or not ocr_results[0]:
             logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
@@ -93,7 +84,6 @@ def _extract_detections_from_image(
             f"Error in OCR processing for page {page_db_id}: {e}",
             exc_info=True,
         )
-        log_memory_usage(f"[{config_id}] after error on page {page_db_id}")
         return []
 
     # Clean up
