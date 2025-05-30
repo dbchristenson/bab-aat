@@ -1,7 +1,5 @@
-import sys
 from pathlib import Path
 
-import modal
 from django.conf import settings
 from loguru import logger
 
@@ -47,12 +45,6 @@ def configure_logging(log_level: str = "INFO") -> None:
         enqueue=True,  # For asynchronous logging
         backtrace=True,  # Better tracebacks for errors
         diagnose=True,  # More detailed error messages
-    )
-
-    logger.add(
-        sys.stdout,
-        level="INFO",
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level} | {name}:{function}:{line} - {message}",  # noqa: E501
     )
 
     logger.info(
