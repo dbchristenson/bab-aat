@@ -34,6 +34,8 @@ def _extract_detections_from_image(
     Returns:
         list[Detection]: List of detection objects for the image.
     """
+    logger.info("Starting OCR session for page {page_db_id}...")
+    logger.debug(f"image_np shape, dtype: {image_np.shape}, {image_np.dtype}")
 
     try:
         ocr_results = ocr.predict(image_np)
