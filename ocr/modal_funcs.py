@@ -113,7 +113,7 @@ def _prepare_model_paths_and_params(
     paddle_init_params = user_ocr_params.copy()
 
     config_specific_base_path = os.path.join(
-        PADDLE_OCR_MODELS_ROOT_IN_VOLUME, config_id
+        PADDLE_OCR_MODELS_ROOT_IN_VOLUME, str(config_id)
     )
 
     for component, details in MODEL_COMPONENT_CONFIG.items():
