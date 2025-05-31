@@ -26,6 +26,26 @@ UV_ADD_PPOCR = (
     "uv pip install --system --compile-bytecode paddleocr==3.0.0"  # noqa: E501
 )
 
+
+def _build_time_preload_models():
+    """
+    Prepares paths and initializes PaddleOCR for known configs during image
+    build, triggering downloads to the persistent volume if models aren't
+    there.
+    """
+    print("Build-time: Starting pre-loading of models into volume.")
+    for cid, params in KNOWN_OCR_CONFIGS_TO_PREWARM.items():
+        print(f"Build-time: Pre-loading models for config_id: {cid}...")
+        try:
+            paddle_init_params = _prepare_model_paths_and_params(cid, params)
+
+            PaddleOCR(**paddle_init_params)
+        except Exception as e:
+            print(f"Build-time: Error pre-loading for config_id {cid}: {e}")
+            raise e
+    print("Build-time: Finished pre-loading models.")
+
+
 inference_image = (
     modal.Image.debian_slim(python_version="3.12")
     .apt_install(*APT_PKGS)
@@ -33,6 +53,10 @@ inference_image = (
     .run_commands(UV_INSTALL_SETUPTOOLS)
     .run_commands(UV_ADD_PP)
     .run_commands(UV_ADD_PPOCR)
+    .run_function(
+        _build_time_preload_models,
+        volumes={PADDLE_OCR_MODELS_ROOT_IN_VOLUME: volume},
+    )
 )
 
 with inference_image.imports():
@@ -174,28 +198,6 @@ KNOWN_OCR_CONFIGS_TO_PREWARM = {
         "text_recognition_model_name": "PP-OCRv5_mobile_rec",
     }
 }
-
-
-@app.build(volumes={PADDLE_OCR_MODELS_ROOT_IN_VOLUME: volume})
-def preload_models():
-    """
-    This function runs when you deploy the Modal app.
-    It prepares paths and then initializes PaddleOCR for known configs,
-    which triggers downloads to the persistent volume if models aren't there.
-    This is the "helper function to actually download the models".
-    """
-
-    print(f"Starting pre-loading of models into volume: {volume.object_id}")
-    for cid, params in KNOWN_OCR_CONFIGS_TO_PREWARM.items():
-        print(f"Pre-loading models for config_id: {cid}...")
-        try:
-            paddle_init_params = _prepare_model_paths_and_params(cid, params)
-
-            PaddleOCR(**paddle_init_params)
-        except Exception as e:
-            print(f"Error pre-loading models for config_id {cid}: {e}")
-            # Optionally, decide if an error here should fail the build
-    print("Finished pre-loading models.")
 
 
 @app.function(
