@@ -190,7 +190,7 @@ def preload_models():
     image=inference_image,
     gpu="T4",
     retries=3,
-    volumes={"/my_vol": modal.Volume.from_name("paddle-3.0.0")},
+    volumes={PADDLE_OCR_MODELS_ROOT_IN_VOLUME: volume},
 )
 def ocr_inference(im_numpy, config_id: int, paddle_config: dict):
     """
