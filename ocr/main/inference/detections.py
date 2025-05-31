@@ -230,7 +230,7 @@ def analyze_document(
     try:
         ocr_config_model_instance = OCRConfig.objects.get(pk=config_id)
         param_config_name = ocr_config_model_instance.name
-        OCRConfig_config = ocr_config_model_instance.config
+        paddle_params = ocr_config_model_instance.config["paddle"]
     except OCRConfig.DoesNotExist:
         logger.warning(
             f"OCRConfig with ID {config_id} not found. Using ID as name."
@@ -276,14 +276,14 @@ def analyze_document(
         figure_dets = _extract_detections_from_image(
             figure_npd,
             # ocr,
-            OCRConfig_config,
+            paddle_params,
             config_id,
             page_db.id,
         )
         table_dets = _extract_detections_from_image(
             table_npd,
             # ocr,
-            OCRConfig_config,
+            paddle_params,
             config_id,
             page_db.id,
         )

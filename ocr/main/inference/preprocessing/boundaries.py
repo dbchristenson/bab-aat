@@ -353,6 +353,17 @@ def _extract_crop_and_offset(
     return crop, offset
 
 
+def _ensure_3_channel_image(img_crop: np.ndarray | None) -> np.ndarray | None:
+    """Converts a 2D or single-channel 3D image to 3-channel BGR."""
+    if img_crop is None:
+        return None
+    if img_crop.ndim == 2:
+        return cv.cvtColor(img_crop, cv.COLOR_GRAY2BGR)
+    if img_crop.ndim == 3 and img_crop.shape[2] == 1:
+        return cv.cvtColor(img_crop, cv.COLOR_GRAY2BGR)
+    return img_crop
+
+
 # --- Main Function ---
 
 
@@ -490,6 +501,7 @@ def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
             fig_crop, fig_offset = _extract_crop_and_offset(
                 img, fig_bbox, "figure", w_img, h_img
             )
+            fig_crop = _ensure_3_channel_image(fig_crop)
         else:
             logger.warning("Figure extraction failed to return bbox.")
             # If no figure_bbox, can't proceed to table based on it.
@@ -511,6 +523,7 @@ def figure_table_extraction(img: np.ndarray, **kwargs) -> tuple | None:
             tbl_crop, tbl_offset = _extract_crop_and_offset(
                 img, table_bbox, "table", w_img, h_img
             )
+            tbl_crop = _ensure_3_channel_image(tbl_crop)
         except Exception as e:
             logger.exception(f"Error during table processing: {e}")
             # Preserve figure results, table results will be None
