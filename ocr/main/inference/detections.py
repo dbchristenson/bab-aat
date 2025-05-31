@@ -83,7 +83,7 @@ def _extract_detections_from_image(
 
     try:
         ocr_fn = modal.Function.from_name("modal-ocr", "ocr_inference")
-        ocr_results = ocr_fn.spawn(
+        ocr_results = ocr_fn.remote(
             im_numpy=image_np, paddle_config=paddle_config
         )
         if not ocr_results or not ocr_results[0]:
