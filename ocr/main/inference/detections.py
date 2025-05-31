@@ -4,36 +4,35 @@ import numpy as np
 from loguru import logger
 
 from ocr.main.inference.preprocessing.boundaries import figure_table_extraction
-from ocr.main.utils.extract_ocr_results import (
-    get_bbox,
-    get_confidence,
-    get_ocr,
-)
 from ocr.main.utils.pdf_utils import get_pdf_object, page_to_image
 from ocr.models import Detection, Page
 
 
 def _build_detection_list(
-    lines: list, page_id: int, config_id: int
+    results, page_id: int, config_id: int
 ) -> list[Detection]:
     """
     Helper function for _extract_detections_from_image to build a list
     of Detection objects.
 
     Args:
-        lines (list): List of results from the OCR network.
+        results: Results object from the OCR network.
         page_id (int): The ID of the Page object this image belongs to.
         config_id (int): The ID of the OCRConfig object used.
 
     Returns:
         list[Detection]: List of Detection objects created from the OCR.
     """
+    # Our predictions come from images so len(results) = 1
+    lines = results[0]
+
     detections = []
     for line_idx, line_data in enumerate(lines):
         try:
-            bbox = get_bbox(line_data)
-            confidence = get_confidence(line_data)
-            text = get_ocr(line_data)
+            print(f"Processing line {line_idx}: {line_data}")
+            bbox = None
+            confidence = None
+            text = None
 
             if confidence < 0.6:  # Default minimum confidence threshold
                 continue
@@ -78,7 +77,7 @@ def _extract_detections_from_image(
     """
     import modal
 
-    logger.info("Starting OCR session for page {page_db_id}...")
+    logger.info(f"Starting OCR session for page {page_db_id}...")
     logger.debug(f"image_np shape, dtype: {image_np.shape}, {image_np.dtype}")
 
     try:
@@ -90,13 +89,12 @@ def _extract_detections_from_image(
             logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
 
-        lines = ocr_results[0]
-
         logger.info(
-            f"[{config_id}] Detected {len(lines)} lines on page {page_db_id}"
+            f"[Conf{config_id}] {len(ocr_results[0])} on page {page_db_id}"
         )
+        logger.debug(f"Result keys: {ocr_results[0].keys()}")
 
-        detections = _build_detection_list(lines, page_db_id, config_id)
+        detections = _build_detection_list(ocr_results, page_db_id, config_id)
 
         return detections
 
@@ -112,8 +110,6 @@ def _extract_detections_from_image(
         try:
             if ocr_results is not None:
                 del ocr_results
-            if lines is not None:
-                del lines
 
             gc.collect()
 
@@ -273,6 +269,7 @@ def analyze_document(
             )
         )
 
+        logger.info("Gathering detections for figures and tables...")
         figure_dets = _extract_detections_from_image(
             figure_npd,
             # ocr,
