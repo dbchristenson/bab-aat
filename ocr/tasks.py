@@ -162,11 +162,11 @@ def get_document_detections(self, document_id: int, config_id: int):
     logger.info(f"Starting detection for document {document_id}")
     logger.info(f"Using config id: {config_id}")
 
-    ocr = _get_ocr_model_instance(config_id)
+    # ocr = _get_ocr_model_instance(config_id)
 
     analyze_document(
         document_id=document_id,
-        ocr=ocr,
+        # ocr=ocr,
         config_id=config_id,
     )
 

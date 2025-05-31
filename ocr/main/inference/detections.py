@@ -13,9 +13,51 @@ from ocr.main.utils.pdf_utils import get_pdf_object, page_to_image
 from ocr.models import Detection, Page
 
 
+def _build_detection_list(
+    lines: list, page_id: int, config_id: int
+) -> list[Detection]:
+    """
+    Helper function for _extract_detections_from_image to build a list
+    of Detection objects.
+
+    Args:
+        lines (list): List of results from the OCR network.
+        page_id (int): The ID of the Page object this image belongs to.
+        config_id (int): The ID of the OCRConfig object used.
+
+    Returns:
+        list[Detection]: List of Detection objects created from the OCR.
+    """
+    detections = []
+    for line_idx, line_data in enumerate(lines):
+        try:
+            bbox = get_bbox(line_data)
+            confidence = get_confidence(line_data)
+            text = get_ocr(line_data)
+
+            if confidence < 0.6:  # Default minimum confidence threshold
+                continue
+
+            det = Detection(
+                page_id=page_id,
+                bbox=bbox,
+                confidence=confidence,
+                text=text,
+                config_id=config_id,
+            )
+            detections.append(det)
+
+        except Exception as e:
+            logger.error(f"Error processing line {line_idx}: {e}")
+            continue
+
+    return detections
+
+
 def _extract_detections_from_image(
     image_np: np.ndarray,
-    ocr,
+    # ocr,
+    paddle_config: dict,
     config_id: int,
     page_db_id: int,
     min_confidence: float = 0.6,
@@ -34,11 +76,16 @@ def _extract_detections_from_image(
     Returns:
         list[Detection]: List of detection objects for the image.
     """
+    import modal
+
     logger.info("Starting OCR session for page {page_db_id}...")
     logger.debug(f"image_np shape, dtype: {image_np.shape}, {image_np.dtype}")
 
     try:
-        ocr_results = ocr.predict(image_np)
+        ocr_fn = modal.Function.from_name("modal-ocr", "ocr_inference")
+        ocr_results = ocr_fn.spawn(
+            im_numpy=image_np, paddle_config=paddle_config
+        )
         if not ocr_results or not ocr_results[0]:
             logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
@@ -49,35 +96,7 @@ def _extract_detections_from_image(
             f"[{config_id}] Detected {len(lines)} lines on page {page_db_id}"
         )
 
-        detections = []
-        for line_idx, line_data in enumerate(lines):
-            try:
-                bbox = get_bbox(line_data)
-                confidence = get_confidence(line_data)
-                text = get_ocr(line_data)
-
-                if confidence < min_confidence:
-                    continue
-
-                det = Detection(
-                    page_id=page_db_id,
-                    bbox=bbox,
-                    confidence=confidence,
-                    text=text,
-                    config_id=config_id,
-                )
-                detections.append(det)
-
-                # Clean up line_data references immediately
-                del bbox, confidence, text
-
-            except Exception as e:
-                logger.error(f"Error processing line {line_idx}: {e}")
-                continue
-
-        logger.info(
-            f"[{config_id}] Extracted {len(detections)} detections for page {page_db_id}"  # noqa E501
-        )
+        detections = _build_detection_list(lines, page_db_id, config_id)
 
         return detections
 
@@ -174,7 +193,7 @@ def _create_page_in_db(document_id: int, page_number: int) -> Page:
 
 def analyze_document(
     document_id: int,
-    ocr,
+    # ocr,
     config_id: int,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,
@@ -185,7 +204,7 @@ def analyze_document(
 
     Args:
         document_id (int): The ID of the document to analyze.
-        ocr (PaddleOCR): The configured OCR network.
+        #ocr (PaddleOCR): The configured OCR network.
         param_config (str): The name of the param_config or model used.
         figure_kwargs (dict, optional): Arguments for figure extraction.
         table_kwargs (dict, optional): Arguments for table extraction.
@@ -211,6 +230,7 @@ def analyze_document(
     try:
         ocr_config_model_instance = OCRConfig.objects.get(pk=config_id)
         param_config_name = ocr_config_model_instance.name
+        OCRConfig_config = ocr_config_model_instance.config
     except OCRConfig.DoesNotExist:
         logger.warning(
             f"OCRConfig with ID {config_id} not found. Using ID as name."
@@ -255,13 +275,15 @@ def analyze_document(
 
         figure_dets = _extract_detections_from_image(
             figure_npd,
-            ocr,
+            # ocr,
+            OCRConfig_config,
             config_id,
             page_db.id,
         )
         table_dets = _extract_detections_from_image(
             table_npd,
-            ocr,
+            # ocr,
+            OCRConfig_config,
             config_id,
             page_db.id,
         )

@@ -64,9 +64,7 @@ SECRET_KEY = secret
 DEBUG = True
 
 gcp_cloudrun_host = HOSTS.get("GCP_CLOUDRUN_HOST")
-ALLOWED_HOSTS = [
-    "localhost",
-]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 if gcp_cloudrun_host:
     ALLOWED_HOSTS.append(gcp_cloudrun_host)
