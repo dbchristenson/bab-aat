@@ -70,12 +70,20 @@ MODEL_COMPONENT_CONFIG = {
 
 
 def _prepare_model_paths_and_params(
-    config_id: str, user_ocr_params: dict
+    config_id: int, user_ocr_params: dict
 ) -> dict:
     """
     Helper to construct model directory paths in the volume and prepare
     parameters for PaddleOCR initialization.
     It creates directories if they don't exist.
+
+    Args:
+        config_id (int): Identifier for the OCR configuration to use.
+        user_ocr_params (dict): User-defined parameters for PaddleOCR.
+
+    Returns:
+        dict: Prepared parameters for PaddleOCR initialization,
+              with model paths set up.
     """
     # Work on a copy to avoid modifying the input dict
     paddle_init_params = user_ocr_params.copy()
@@ -128,10 +136,14 @@ def _prepare_model_paths_and_params(
     return paddle_init_params
 
 
-def get_or_create_ocr_instance(config_id: str, user_ocr_params: dict):
+def get_or_create_ocr_instance(config_id: int, user_ocr_params: dict):
     """
     Runtime function to get/create a PaddleOCR instance.
     Loads models from pre-populated volume.
+
+    Args:
+        config_id (int): Identifier for the OCR configuration to use.
+        user_ocr_params (dict): User-defined parameters for PaddleOCR.
     """
 
     if config_id in _ocr_instances:
@@ -206,7 +218,7 @@ def ocr_inference(im_numpy, config_id: int, paddle_config: dict):
     """
 
     ocr = get_or_create_ocr_instance(
-        config_id=paddle_config.get("config_id", "default"),
+        config_id=config_id,
         user_ocr_params=paddle_config,
     )
     results = ocr.predict(im_numpy)
