@@ -194,6 +194,11 @@ def documents(request):
     if doc_number:
         documents = documents.filter(document_number__icontains=doc_number)
 
+    # Filter for documents without detections
+    no_detections_only = request.GET.get("no_detections", "").lower() == "true"
+    if no_detections_only:
+        documents = documents.exclude(pages__detections__isnull=False)
+
     sort_key = request.GET.get("sort", "id")  # 'id' or 'file_size'
     order = request.GET.get("order", "asc")  # 'asc' or 'desc'
     field_map = {
@@ -240,6 +245,7 @@ def documents(request):
             f"{k}={v}" for k, v in request.GET.items() if k not in ["page"]
         ),
         "documents_without_dets_count": _count_documents_with_out_detections(),
+        "no_detections_only": no_detections_only,
     }
 
     return render(request, "documents.html", context)
@@ -462,15 +468,20 @@ def detect_by_origin(request):
             vessel = form.cleaned_data["vessel"]
             department_origin = form.cleaned_data["department_origin"]
             config = form.cleaned_data["config"]
+            only_without_detections = form.cleaned_data[
+                "only_without_detections"
+            ]
             logger.info(
                 f"Selected vessel: {vessel.name}, "
                 f"origin: {department_origin}, "
-                f"config: {config.name}"
+                f"config: {config.name}, "
+                f"only_without_detections: {only_without_detections}"
             )
             task_results = handle_batch_document_detections(
                 vessel_id=vessel.id,
                 department_origin=department_origin,
                 config_id=config.id,
+                only_without_detections=only_without_detections,
             )
 
             if not task_results:

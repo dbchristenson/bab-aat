@@ -9,6 +9,23 @@
 {% block scripts %}
 <script src="{% static 'js/documents.js' %}"></script>
 <script src="{% static 'js/pagination.js' %}"></script>
+<script>
+    function toggleNoDetectionsFilter() {
+        const checkbox = document.getElementById('noDetectionsFilter');
+        const url = new URL(window.location.href);
+
+        if (checkbox.checked) {
+            url.searchParams.set('no_detections', 'true');
+        } else {
+            url.searchParams.delete('no_detections');
+        }
+
+        // Remove page parameter to go back to page 1
+        url.searchParams.delete('page');
+
+        window.location.href = url.toString();
+    }
+</script>
 {% endblock %}
 
 {% block content %}
@@ -18,28 +35,34 @@
     <form method="get" class="row g-3 mb-4 align-items-end">
         <!-- Search box -->
         <div class="col-md-5">
-            <label for="document_number" class="form-label">Search Document No.</label>
-            <input type="search" id="document_number" name="document_number" class="form-control"
-                placeholder="Type any part…" value="{{ request.GET.document_number }}">
+            <label for="document_number" class="form-label">Search Document
+                No.</label>
+            <input type="search" id="document_number" name="document_number"
+                class="form-control" placeholder="Type any part…"
+                value="{{ request.GET.document_number }}">
         </div>
 
         <!-- Vessel checkboxes -->
         <div class="col-md-5">
             <label class="form-label">Filter by Vessel</label>
             <div class="dropdown">
-                <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle w-100"
+                    type="button" data-bs-toggle="dropdown">
                     {% if selected_vessel_names %}
                     {{ selected_vessel_names|join:", " }}
                     {% else %}
                     All Vessels
                     {% endif %}
                 </button>
-                <div class="dropdown-menu p-3" style="max-height:200px; overflow-y:auto;">
+                <div class="dropdown-menu p-3"
+                    style="max-height:200px; overflow-y:auto;">
                     {% for vessel in vessels %}
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="vessels" value="{{ vessel.id }}"
+                        <input class="form-check-input" type="checkbox"
+                            name="vessels" value="{{ vessel.id }}"
                             id="vchk{{ vessel.id }}" {% if vessel.id|stringformat:"s" in selected_vessels %}checked{% endif %}>
-                        <label class="form-check-label" for="vchk{{ vessel.id }}">
+                        <label class="form-check-label"
+                            for="vchk{{ vessel.id }}">
                             {{ vessel.name }}
                         </label>
                     </div>
@@ -55,7 +78,8 @@
         <!-- Submit & Clear -->
         <div class="col-md-2 text-end">
             <button type="submit" class="btn btn-primary me-2">Search</button>
-            <a href="/ocr/documents/" class="btn btn-outline-secondary">Clear</a>
+            <a href="/ocr/documents/"
+                class="btn btn-outline-secondary">Clear</a>
         </div>
     </form>
 
@@ -67,8 +91,14 @@
             of <strong>{{ page_obj.paginator.count }}</strong> documents.
         </div>
         <div>
-            There are <strong>{{ documents_without_dets_count }}</strong> documents
+            There are <strong>{{ documents_without_dets_count }}</strong>
+            documents
             without detections yet.
+            <label class="form-check-label ms-2">
+                <input type="checkbox" class="form-check-input me-1"
+                    id="noDetectionsFilter" {% if no_detections_only %}checked{% endif %} onchange="toggleNoDetectionsFilter()">
+                Show only documents without detections
+            </label>
         </div>
     </div>
 
@@ -108,8 +138,9 @@
         <tbody>
             {% for d in page_obj.object_list %}
             <tr class="clickable" data-vessel-id="{{ d.vessel.id }}"
-                data-document-number="{{ d.document_number|lower }}" data-document-id="{{ d.id }}"
-                data-file-size="{{ d.file_size }}" onclick="window.location='{{ d.id }}'" tabindex="0">
+                data-document-number="{{ d.document_number|lower }}"
+                data-document-id="{{ d.id }}" data-file-size="{{ d.file_size }}"
+                onclick="window.location='{{ d.id }}'" tabindex="0">
                 <th scope="row">{{ d.id }}</th>
                 <td>{{ d.name }}</td>
                 <td>{{ d.vessel.name }}</td>
@@ -149,7 +180,8 @@
             </li>
             {% else %}
             <li class="page-item">
-                <a class="page-link" href="?{{ base_query }}{% if base_query %}&{% endif %}page={{ p }}">
+                <a class="page-link"
+                    href="?{{ base_query }}{% if base_query %}&{% endif %}page={{ p }}">
                     {{ p }}
                 </a>
             </li>
@@ -171,10 +203,14 @@
         </ul>
 
         <!-- Jump-to-page form -->
-        <form id="jumpForm" class="d-flex justify-content-center align-items-center mt-3" onsubmit="return false;">
+        <form id="jumpForm"
+            class="d-flex justify-content-center align-items-center mt-3"
+            onsubmit="return false;">
             <label for="jumpTo" class="me-2 mb-0">Go to page:</label>
-            <input type="number" id="jumpTo" class="form-control" style="width: 100px; margin-right: .5rem;" min="1"
-                max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}">
+            <input type="number" id="jumpTo" class="form-control"
+                style="width: 100px; margin-right: .5rem;" min="1"
+                max="{{ page_obj.paginator.num_pages }}"
+                value="{{ page_obj.number }}">
             <button type="submit" class="btn btn-primary btn-sm">Go</button>
             <span class="ms-2">of {{ page_obj.paginator.num_pages }}</span>
         </form>

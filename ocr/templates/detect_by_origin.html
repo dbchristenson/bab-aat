@@ -115,6 +115,35 @@
                         {% endif %}
                     </div>
 
+                    <!-- Only Without Detections Field -->
+                    <div class="mb-4">
+                        <div class="form-check">
+                            {{ form.only_without_detections }}
+                            <label
+                                for="{{ form.only_without_detections.id_for_label }}"
+                                class="form-check-label fw-bold">
+                                <i class="fas fa-filter me-2 text-primary"></i>
+                                Only process documents without existing
+                                detections
+                            </label>
+                        </div>
+
+                        {% if form.only_without_detections.help_text %}
+                        <div class="form-text mt-2">
+                            {{ form.only_without_detections.help_text }}
+                        </div>
+                        {% endif %}
+
+                        {% if form.only_without_detections.errors %}
+                        <div class="invalid-feedback d-block">
+                            {% for error in form.only_without_detections.errors
+                            %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+
                     <!-- Submit -->
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary btn-lg">
