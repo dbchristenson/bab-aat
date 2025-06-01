@@ -259,13 +259,28 @@ def document_detail(request, document_id):
     document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
-    page_detections = []
+    page_data = []
     if selected_config:
         for p in pages:
             dets = Detection.objects.filter(page=p, config=selected_config)
-            page_detections.append((p, dets)) if dets.exists() else None
+            if dets.exists():
+                annotated_image_url = p.get_annotated_image_url(
+                    config_id=selected_config.id
+                )
+                if annotated_image_url:
+                    # Log the retrieval of the annotated image URL
+                    logger.debug(
+                        f"Image URL for page {p.id}: {annotated_image_url}"
+                    )
+                page_data.append(
+                    {
+                        "page": p,
+                        "detections": dets,
+                        "annotated_img_url": annotated_image_url,
+                    }
+                )
 
-            if not dets.exists():
+            else:
                 logger.info(
                     f"No detections found for document {document_id}, "
                     f"page {p.page_number}, config {selected_config.name}"
@@ -274,18 +289,17 @@ def document_detail(request, document_id):
         logger.warning("No OCRConfig selected, no detections will be shown.")
 
     # check if page_detections
-    draw_ocr = bool(page_detections)
+    draw_ocr = bool(page_data)
 
     context = {
         "document": document,
-        "page_detections": page_detections,
+        "page_detections": page_data,
         "configs": all_configs,
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
         "vessel": document.vessel.name if document.vessel else None,
     }
 
-    logger.info(context)
     return render(request, "document_detail.html", context)
 
 
@@ -361,10 +375,8 @@ def trigger_draw_ocr(request, document_id):
             )
 
             return redirect(
-                reverse(
-                    "ocr:documenet_detail",
-                    args=[document_id] + f"?config_id={config_id}",
-                )  # noqa E501
+                reverse("ocr:document_detail", args=[document_id])
+                + f"?config_id={config_id}",
             )
         except Exception as e:
             logger.error(f"Error triggering draw OCR: {e}")

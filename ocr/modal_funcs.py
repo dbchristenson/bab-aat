@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import modal
 
@@ -29,19 +30,90 @@ UV_ADD_PPOCR = (
 
 def _build_time_preload_models():
     """
-    Prepares paths and initializes PaddleOCR for known configs during image
-    build, triggering downloads to the persistent volume if models aren't
-    there.
+    Downloads models to PaddleOCR's default cache, then copies them
+    to the persistent volume for known configurations.
     """
-    print("Build-time: Starting pre-loading of models into volume.")
-    for cid, params in KNOWN_OCR_CONFIGS_TO_PREWARM.items():
-        print(f"Build-time: Pre-loading models for config_id: {cid}...")
-        try:
-            paddle_init_params = _prepare_model_paths_and_params(cid, params)
+    print("Build-time: Starting pre-loading of models.")
+    # Default base path where PaddleOCR/PaddleX downloads models, from logs
+    default_paddle_model_download_base = "/root/.paddlex/official_models"
 
-            PaddleOCR(**paddle_init_params)
+    for (
+        cid_int,
+        user_params_for_config,
+    ) in KNOWN_OCR_CONFIGS_TO_PREWARM.items():
+        cid_str = str(cid_int)
+        print(f"Build-time: Processing config_id: {cid_str}...")
+
+        # Prepare parameters for PaddleOCR to trigger downloads to its default cache.
+        # Start with all user params for this config.
+        download_trigger_params = user_params_for_config.copy()
+
+        # Remove any *_model_dir keys. We want PaddleOCR to use default download paths
+        # based on the *_model_name keys (which should remain).
+        components_to_copy_after_download = []
+        for component_details in MODEL_COMPONENT_CONFIG.values():
+            dir_key = component_details["dir_key"]
+            if dir_key in download_trigger_params:
+                del download_trigger_params[dir_key]
+
+            name_key = component_details["name_key"]
+            if name_key in user_params_for_config:
+                # Store model folder name for later copying
+                components_to_copy_after_download.append(
+                    user_params_for_config[name_key]
+                )
+
+        try:
+            print(
+                f"Build-time: Initializing PaddleOCR for config {cid_str} to trigger downloads to default paths..."
+            )
+            # This instantiation downloads models (if not already in default cache)
+            # based on *_model_name present in download_trigger_params.
+            PaddleOCR(**download_trigger_params)
+            print(
+                f"Build-time: PaddleOCR initialized for {cid_str}. Default downloads complete."
+            )
+
+            # Copy the specifically named models from default cache to our volume
+            for model_folder_name in components_to_copy_after_download:
+                source_model_path = os.path.join(
+                    default_paddle_model_download_base, model_folder_name
+                )
+                target_model_path_in_volume = os.path.join(
+                    PADDLE_OCR_MODELS_ROOT_IN_VOLUME,
+                    cid_str,
+                    model_folder_name,
+                )
+
+                print(
+                    f"Build-time: Checking source for '{model_folder_name}': {source_model_path}"
+                )
+                if os.path.isdir(source_model_path):
+                    print(
+                        f"Build-time: Copying '{model_folder_name}' for config {cid_str} to {target_model_path_in_volume}..."
+                    )
+                    # Ensure target parent directory exists
+                    os.makedirs(
+                        os.path.dirname(target_model_path_in_volume),
+                        exist_ok=True,
+                    )
+                    shutil.copytree(
+                        source_model_path,
+                        target_model_path_in_volume,
+                        dirs_exist_ok=True,  # Overwrite if target exists (Python 3.8+)
+                    )
+                    print(
+                        f"Build-time: Copied '{model_folder_name}' successfully."
+                    )
+                else:
+                    print(
+                        f"Build-time: WARNING - Source model path not found: {source_model_path}. Cannot copy."
+                    )
+
         except Exception as e:
-            print(f"Build-time: Error pre-loading for config_id {cid}: {e}")
+            print(
+                f"Build-time: Error during pre-loading for config_id {cid_str}: {e}"
+            )
             raise e
     print("Build-time: Finished pre-loading models.")
 
@@ -56,6 +128,7 @@ inference_image = (
     .run_function(
         _build_time_preload_models,
         volumes={PADDLE_OCR_MODELS_ROOT_IN_VOLUME: volume},
+        gpu="T4",
     )
 )
 
@@ -144,19 +217,6 @@ def _prepare_model_paths_and_params(
             # If component_enabled_by_flag is F, we've popped the *_model_name,
             # and we don't set the corresponding *_model_dir. PaddleOCR will
             # respect the use_flag (e.g., use_textline_orientation=False).
-
-    # Default to GPU if not specified
-    if (
-        "use_gpu" not in paddle_init_params
-        and "device" not in paddle_init_params
-    ):
-        paddle_init_params["use_gpu"] = True  # For older PaddleOCR param style
-        # For newer "device" param: paddle_init_params["device"] = "gpu:0"
-
-    # Reduce PaddleOCR's default verbosity
-    if "show_log" not in paddle_init_params:
-        paddle_init_params["show_log"] = False
-
     return paddle_init_params
 
 

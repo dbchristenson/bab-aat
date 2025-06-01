@@ -9,7 +9,7 @@ from ocr.models import Detection, Page
 
 
 def _build_detection_list(
-    results, page_id: int, config_id: int
+    results, page_id: int, config_id: int, min_confidence: float = 0.6
 ) -> list[Detection]:
     """
     Helper function for _extract_detections_from_image to build a list
@@ -24,31 +24,25 @@ def _build_detection_list(
         list[Detection]: List of Detection objects created from the OCR.
     """
     # Our predictions come from images so len(results) = 1
-    lines = results[0]
+    result_dict = results[0]
 
     detections = []
-    for line_idx, line_data in enumerate(lines):
-        try:
-            print(f"Processing line {line_idx}: {line_data}")
-            bbox = None
-            confidence = None
-            text = None
-
-            if confidence < 0.6:  # Default minimum confidence threshold
-                continue
-
-            det = Detection(
-                page_id=page_id,
-                bbox=bbox,
-                confidence=confidence,
-                text=text,
-                config_id=config_id,
-            )
-            detections.append(det)
-
-        except Exception as e:
-            logger.error(f"Error processing line {line_idx}: {e}")
+    for text, score, bbox in zip(
+        result_dict["rec_texts"],
+        result_dict["rec_scores"],
+        result_dict["rec_polys"],
+    ):
+        if score < min_confidence:  # Default minimum confidence threshold
             continue
+
+        det = Detection(
+            page_id=page_id,
+            bbox=bbox,
+            confidence=score,
+            text=text,
+            config_id=config_id,
+        )
+        detections.append(det)
 
     return detections
 
@@ -89,12 +83,9 @@ def _extract_detections_from_image(
             logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
 
-        logger.info(
-            f"[Conf{config_id}] {len(ocr_results[0])} on page {page_db_id}"
+        detections = _build_detection_list(
+            ocr_results, page_db_id, config_id, min_confidence
         )
-        logger.debug(f"Result keys: {ocr_results[0].keys()}")
-
-        detections = _build_detection_list(ocr_results, page_db_id, config_id)
 
         return detections
 
@@ -147,7 +138,11 @@ def _adjust_and_save_detections(
     """
     saved_detections = []
     for det in detections:
-        # Adjust bbox: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+        logger.debug(det.bbox)
+        logger.debug(type(det.bbox))
+        logger.debug(np.array(det.bbox).shape)
+        logger.debug(np.array(det.bbox)[0])
+        # Adjust poly: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
         adjusted_bbox = [[p[0] + offset_x, p[1] + offset_y] for p in det.bbox]
         # Rescale bbox points
         adjusted_bbox = [
