@@ -18,8 +18,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # File storage
 MEDIA_ROOT = os.path.join(BASE_DIR, "resources", "media")
-MEDIA_URL = "/media/"
-MEDIA_URL = "/media/"
+MEDIA_URL = "resources/media/"
 
 # Secrets management
 SECRETS = load_all_secrets()

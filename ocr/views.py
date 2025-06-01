@@ -310,7 +310,7 @@ def document_detail(request, document_id):
 
     context = {
         "document": document,
-        "page_detections": page_data,
+        "page_data": page_data,
         "configs": OCRConfig.objects.all(),
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,

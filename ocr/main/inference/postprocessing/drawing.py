@@ -44,11 +44,10 @@ def _draw_bboxes_on_page(
 
     # Get page dimensions
     page_rect = page.rect
-    page_width = page_rect.width
-    page_height = page_rect.height
 
     logger.info(
-        f"Page {page_obj.page_number} dimensions: {page_width}x{page_height}"
+        f"Page {page_obj.page_number} dimensions: "
+        f"{page_rect.width}x{page_rect.height}"
     )
     logger.info(f"Render scale: {render_scale}")
 
@@ -59,36 +58,34 @@ def _draw_bboxes_on_page(
         x_coords = [point[0] for point in bbox_points]
         y_coords = [point[1] for point in bbox_points]
 
-        # Simple scaling by render factor
-        x1 = min(x_coords) * render_scale
-        x2 = max(x_coords) * render_scale
-        y1 = min(y_coords) * render_scale
-        y2 = max(y_coords) * render_scale
-
-        # Clamp coordinates to render bounds
-        render_width = page_width * render_scale
-        render_height = page_height * render_scale
-        x1 = max(0, min(x1, render_width))
-        x2 = max(0, min(x2, render_width))
-        y1 = max(0, min(y1, render_height))
-        y2 = max(0, min(y2, render_height))
+        x1_pdf = min(x_coords)
+        y1_pdf = min(y_coords)
+        x2_pdf = max(x_coords)
+        y2_pdf = max(y_coords)
 
         if i < 5:  # Log first few detections for debugging
             logger.debug(f"Detection {i}: '{detection.text[:20]}'")
-            logger.debug(f"  Original bbox: {bbox_points}")
+            logger.debug(f"  Stored PDF bbox points: {bbox_points}")
             logger.debug(
-                f"  Render rect: ({x1:.1f}, {y1:.1f}, {x2:.1f}, {y2:.1f})"
+                f"  Drawing PDF Rect: ({x1_pdf}, {y1_pdf}, {x2_pdf}, {y2_pdf})"
             )
 
         # Create rectangle from coordinates
-        rect = pymupdf.Rect(x1, y1, x2, y2)
+        rect = pymupdf.Rect(x1_pdf, y1_pdf, x2_pdf, y2_pdf)
 
         # Draw rectangle (red border, no fill)
         page.draw_rect(rect, color=(1, 0, 0), width=2)
 
         # Add text label above the bbox
         if detection.text and len(detection.text.strip()) > 0:
-            text_point = pymupdf.Point(x1, max(y1 - 10, 10))
+            text_y_offset_points = 5
+            text_min_y_from_top_points = 5
+
+            text_y_pdf = y1_pdf - text_y_offset_points
+            text_y_pdf = max(text_y_pdf, text_min_y_from_top_points)
+
+            text_point = pymupdf.Point(x1_pdf, text_y_pdf)
+            # Fontsize 8 is also in PDF points.
             page.insert_text(
                 text_point,
                 f"{i}: {detection.text[:15]}",
