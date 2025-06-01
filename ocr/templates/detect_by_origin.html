@@ -136,8 +136,7 @@
 
                         {% if form.only_without_detections.errors %}
                         <div class="invalid-feedback d-block">
-                            {% for error in form.only_without_detections.errors
-                            %}
+                            {% for error in form.only_without_detections.errors %}
                             {{ error }}
                             {% endfor %}
                         </div>
