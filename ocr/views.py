@@ -242,19 +242,20 @@ def document_detail(request, document_id):
     associated detections if they have been created.
     """
     selected_config_id = request.GET.get("config_id", None)
-    all_configs = OCRConfig.objects.all().order_by("name")
-    selected_config = None
 
     if selected_config_id:
         try:
             selected_config = OCRConfig.objects.get(id=selected_config_id)
         except OCRConfig.DoesNotExist:
             logger.warning(f"Config with id {selected_config_id} not found.")
-            # Optionally, fall back to the first config or no config
-            if all_configs.exists():
-                selected_config = all_configs.first()
-    elif all_configs.exists():
-        selected_config = all_configs.first()
+    else:
+        try:
+            selected_config = OCRConfig.objects.get(name="production")
+        except OCRConfig.DoesNotExist:
+            logger.warning(
+                "No default config found, setting selected_config to None."
+            )
+            selected_config = None
 
     document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
@@ -294,7 +295,7 @@ def document_detail(request, document_id):
     context = {
         "document": document,
         "page_detections": page_data,
-        "configs": all_configs,
+        "configs": OCRConfig.objects.all(),
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
         "vessel": document.vessel.name if document.vessel else None,
