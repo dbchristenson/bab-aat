@@ -168,3 +168,9 @@ class DetectByOriginForm(forms.Form):
         required=True,
         help_text="Select the OCR configuration to use for detection",
     )
+
+    only_without_detections = forms.BooleanField(
+        required=False,
+        initial=True,
+        help_text="Only detect documents without existing detections",
+    )

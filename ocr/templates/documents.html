@@ -66,6 +66,10 @@
             <strong>{{ page_obj.start_index }}–{{ page_obj.end_index }}</strong>
             of <strong>{{ page_obj.paginator.count }}</strong> documents.
         </div>
+        <div>
+            There are <strong>{{ documents_without_dets_count }}</strong> documents
+            without detections yet.
+        </div>
     </div>
 
     <!-- DOCUMENTS TABLE -->

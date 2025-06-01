@@ -157,6 +157,15 @@ def upload_success(request):
 
 # DOCUMENTS
 # ------------------------------------------------------------------------------
+def _count_documents_with_out_detections():
+    """
+    Count the number of documents that do not have any detections.
+    This is used to display a warning on the documents page if there
+    are documents without detections.
+    """
+    return Document.objects.exclude(pages__detections__isnull=False).count()
+
+
 def documents(request):
     """
     Render the documents page with filtering options.
@@ -230,6 +239,7 @@ def documents(request):
         "base_query": "&".join(
             f"{k}={v}" for k, v in request.GET.items() if k not in ["page"]
         ),
+        "documents_without_dets_count": _count_documents_with_out_detections(),
     }
 
     return render(request, "documents.html", context)
