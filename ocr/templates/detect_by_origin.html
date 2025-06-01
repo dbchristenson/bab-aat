@@ -80,7 +80,7 @@
                         {% endif %}
 
                         {% if form.department_origin.errors %}
-                        <div class "invalid-feedback d-block">
+                        <div class="invalid-feedback d-block">
                             {% for error in form.department_origin.errors %}
                             {{ error }}
                             {% endfor %}
@@ -123,16 +123,16 @@
                                 for="{{ form.only_without_detections.id_for_label }}"
                                 class="form-check-label fw-bold">
                                 <i class="fas fa-filter me-2 text-primary"></i>
-                                Only process documents without existing
-                                detections
+                                Use Only Unprocessed Documents
                             </label>
                         </div>
 
-                        {% if form.only_without_detections.help_text %}
-                        <div class="form-text mt-2">
-                            {{ form.only_without_detections.help_text }}
+                        <div class="form-text mt-2 card-body">
+                            If this is option is checked, only documents
+                            without available detections will be processed.
+                            This is recommended to save on hardware costs
+                            and time needed to process documents.
                         </div>
-                        {% endif %}
 
                         {% if form.only_without_detections.errors %}
                         <div class="invalid-feedback d-block">

@@ -175,6 +175,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
 CELERY_BROKER_URL = REDIS.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": 3600,
+    "health_check_interval": 25,
+    "socket_timeout": 10,
+    "socket_connect_timeout": 10,
+}
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
 CELERY_RESULT_BACKEND = REDIS.get(
     "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
 )
