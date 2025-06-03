@@ -44,53 +44,61 @@ def _draw_bboxes_on_page(
 
     # Get page dimensions
     page_rect = page.rect
-
     logger.info(
         f"Page {page_obj.page_number} dimensions: "
         f"{page_rect.width}x{page_rect.height}"
     )
     logger.info(f"Render scale: {render_scale}")
 
+    page_intrinsic_rotation = page.rotation
+    text_render_rotation = page_intrinsic_rotation
+    inv_rotation_matrix = ~page.rotation_matrix
+
     for i, detection in enumerate(detections):
         bbox_points = detection.bbox
 
-        # Get min/max from bbox (coordinates at original scale)
-        x_coords = [point[0] for point in bbox_points]
-        y_coords = [point[1] for point in bbox_points]
-
-        x1_pdf = min(x_coords)
-        y1_pdf = min(y_coords)
-        x2_pdf = max(x_coords)
-        y2_pdf = max(y_coords)
-
-        if i < 5:  # Log first few detections for debugging
-            logger.debug(f"Detection {i}: '{detection.text[:20]}'")
-            logger.debug(f"  Stored PDF bbox points: {bbox_points}")
-            logger.debug(
-                f"  Drawing PDF Rect: ({x1_pdf}, {y1_pdf}, {x2_pdf}, {y2_pdf})"
+        polygon_vertices_unrotated_pdf = []
+        for p_rot_coords in bbox_points:
+            pt_in_rotated_frame = pymupdf.Point(
+                p_rot_coords[0], p_rot_coords[1]
             )
+            pt_in_unrotated_frame = pt_in_rotated_frame * inv_rotation_matrix
+            polygon_vertices_unrotated_pdf.append(pt_in_unrotated_frame)
 
-        # Create rectangle from coordinates
-        rect = pymupdf.Rect(x1_pdf, y1_pdf, x2_pdf, y2_pdf)
+        x_coords_unrot = [p.x for p in polygon_vertices_unrotated_pdf]
+        y_coords_unrot = [p.y for p in polygon_vertices_unrotated_pdf]
 
-        # Draw rectangle (red border, no fill)
-        page.draw_rect(rect, color=(1, 0, 0), width=2)
+        # Get min/max from bbox (coordinates at original scale)
+        x_coords_unrot = [p.x for p in polygon_vertices_unrotated_pdf]
+        y_coords_unrot = [p.y for p in polygon_vertices_unrotated_pdf]
+
+        rect_x1 = min(x_coords_unrot)
+        rect_y1 = min(y_coords_unrot)
+        rect_x2 = max(x_coords_unrot)
+        rect_y2 = max(y_coords_unrot)
+
+        drawn_rect = pymupdf.Rect(rect_x1, rect_y1, rect_x2, rect_y2)
+        page.draw_rect(drawn_rect, color=(1, 0, 0), width=1)
+
+        min_x_for_text = min(x_coords_unrot) if x_coords_unrot else 0
+        min_y_for_text = min(y_coords_unrot) if y_coords_unrot else 0
 
         # Add text label above the bbox
         if detection.text and len(detection.text.strip()) > 0:
             text_y_offset_points = 5
             text_min_y_from_top_points = 5
 
-            text_y_pdf = y1_pdf - text_y_offset_points
-            text_y_pdf = max(text_y_pdf, text_min_y_from_top_points)
+            text_anchor_y = min_y_for_text - text_y_offset_points
+            text_anchor_y = max(text_anchor_y, text_min_y_from_top_points)
 
-            text_point = pymupdf.Point(x1_pdf, text_y_pdf)
+            actual_text_point = pymupdf.Point(min_x_for_text, text_anchor_y)
             # Fontsize 8 is also in PDF points.
             page.insert_text(
-                text_point,
+                actual_text_point,
                 f"{i}: {detection.text[:15]}",
                 fontsize=8,
                 color=(1, 0, 0),
+                rotate=text_render_rotation,
             )
 
 
@@ -106,7 +114,7 @@ def visualize_document_results(document_id: int, config_id: int) -> list[str]:
         list[str]: List of file paths to the generated images.
     """
     # Use a consistent render scale - we'll use 2x for good quality
-    render_scale = 2.0
+    render_scale = 4.0
 
     # Load PDF and get pages
     pdf_pages = _load_pdf_and_rotate(document_id)

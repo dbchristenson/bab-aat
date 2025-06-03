@@ -191,6 +191,7 @@ main.db
 *.jpg
 need_annotation
 resources/*
+media/*
 
 # pdfs
 *.pdf

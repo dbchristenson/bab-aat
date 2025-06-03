@@ -307,6 +307,10 @@ def document_detail(request, document_id):
 
     # check if page_detections
     draw_ocr = bool(page_data)
+    logger.info(f"draw_ocr: {draw_ocr}")
+    logger.info(f"page_data: {page_data}")
+    for data in page_data:
+        logger.info(f"{data['annotated_img_url']}")
 
     context = {
         "document": document,

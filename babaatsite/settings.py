@@ -17,8 +17,8 @@ if "test" in sys.argv:
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # File storage
-MEDIA_ROOT = os.path.join(BASE_DIR, "resources", "media")
-MEDIA_URL = "resources/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
 
 # Secrets management
 SECRETS = load_all_secrets()
