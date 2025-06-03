@@ -256,6 +256,7 @@ KNOWN_OCR_CONFIGS_TO_PREWARM = {
         "use_textline_orientation": True,
         "text_detection_model_name": "PP-OCRv5_mobile_det",
         "text_recognition_model_name": "PP-OCRv5_mobile_rec",
+        "use_doc_unwarping": False,
     }
 }
 
@@ -278,7 +279,6 @@ def ocr_inference(im_numpy, config_id: int, paddle_config: dict):
     Returns:
         list: List of OCR results.
     """
-
     ocr = get_or_create_ocr_instance(
         config_id=config_id,
         user_ocr_params=paddle_config,

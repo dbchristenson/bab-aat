@@ -74,24 +74,48 @@ def _extract_detections_from_image(
     logger.info(f"Starting OCR session for page {page_db_id}...")
     logger.debug(f"image_np shape, dtype: {image_np.shape}, {image_np.dtype}")
 
+    # Ensure image has 3 channels (RGB) as expected by PaddleOCR
+    if len(image_np.shape) == 2:
+        logger.debug("Converting 2D grayscale image to 3-channel RGB")
+        image_np = np.stack([image_np] * 3, axis=2)
+        logger.debug(f"After conversion, shape: {image_np.shape}")
+    elif len(image_np.shape) == 3 and image_np.shape[2] == 1:
+        logger.debug("Converting single-channel image to 3-channel RGB")
+        image_np = np.repeat(image_np, 3, axis=2)
+        logger.debug(f"After conversion, shape: {image_np.shape}")
+
     try:
+        logger.debug(f"Getting modal function for page {page_db_id}")
         ocr_fn = modal.Function.from_name("modal-ocr", "ocr_inference")
+
+        logger.debug(f"Calling remote OCR function for page {page_db_id}")
         ocr_results = ocr_fn.remote(
             im_numpy=image_np, config_id=config_id, paddle_config=paddle_config
         )
+
+        logger.debug(f"Checking OCR results for page {page_db_id}")
         if not ocr_results or not ocr_results[0]:
             logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
             return []
 
+        logger.debug(f"Building detection list for page {page_db_id}")
         detections = _build_detection_list(
             ocr_results, page_db_id, config_id, min_confidence
         )
 
+        logger.debug(
+            f"Successfully processed {len(detections)} detections for page "
+            f"{page_db_id}"
+        )
         return detections
 
     except Exception as e:
+        import traceback
+
+        tb_str = traceback.format_exc()
         logger.error(
-            f"Error in OCR processing for page {page_db_id}: {e}",
+            f"Error in OCR processing for page {page_db_id}: {e}\n"
+            f"Full traceback:\n{tb_str}",
             exc_info=True,
         )
         return []
@@ -99,7 +123,8 @@ def _extract_detections_from_image(
     # Clean up
     finally:
         try:
-            if ocr_results is not None:
+            # Only try to delete ocr_results if it was successfully created
+            if "ocr_results" in locals() and ocr_results is not None:
                 del ocr_results
 
             gc.collect()
@@ -188,6 +213,7 @@ def analyze_document(
     config_id: int,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,
+    boundary_preprocessing: bool = False,
 ) -> list[Detection]:
     """
     Analyze a document by processing each page, extracting figure and table
@@ -196,9 +222,11 @@ def analyze_document(
     Args:
         document_id (int): The ID of the document to analyze.
         #ocr (PaddleOCR): The configured OCR network.
-        param_config (str): The name of the param_config or model used.
+        config_id (int): The ID of the OCRConfig object used.
         figure_kwargs (dict, optional): Arguments for figure extraction.
         table_kwargs (dict, optional): Arguments for table extraction.
+        boundary_preprocessing (bool): Whether to perform figure/table boundary
+            extraction. If False, processes the entire page image.
 
     Returns:
         list[Detection]: List of all saved detection objects for the document.
@@ -256,44 +284,64 @@ def analyze_document(
             continue
 
         # Extract figure and table regions from the page image
-        figure_npd, table_npd, figure_offset, table_offset = (
-            figure_table_extraction(
-                page_im,
-                figure_kwargs=figure_kwargs,
-                table_kwargs=table_kwargs,
+        if boundary_preprocessing:
+            figure_npd, table_npd, figure_offset, table_offset = (
+                figure_table_extraction(
+                    page_im,
+                    figure_kwargs=figure_kwargs,
+                    table_kwargs=table_kwargs,
+                )
             )
-        )
 
-        logger.info("Gathering detections for figures and tables...")
-        figure_dets = _extract_detections_from_image(
-            figure_npd,
-            # ocr,
-            paddle_params,
-            config_id,
-            page_db.id,
-        )
-        table_dets = _extract_detections_from_image(
-            table_npd,
-            # ocr,
-            paddle_params,
-            config_id,
-            page_db.id,
-        )
+            logger.info("Gathering detections for figures and tables...")
+            figure_dets = _extract_detections_from_image(
+                figure_npd,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
+            table_dets = _extract_detections_from_image(
+                table_npd,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
 
-        # Adjust and save detections
-        _adjust_and_save_detections(
-            figure_dets,
-            figure_offset[0],
-            figure_offset[1],
-            page_render_scale,
-        )
+            # Adjust and save detections
+            _adjust_and_save_detections(
+                figure_dets,
+                figure_offset[0],
+                figure_offset[1],
+                page_render_scale,
+            )
 
-        _adjust_and_save_detections(
-            table_dets,
-            table_offset[0],
-            table_offset[1],
-            page_render_scale,
-        )
+            _adjust_and_save_detections(
+                table_dets,
+                table_offset[0],
+                table_offset[1],
+                page_render_scale,
+            )
+        else:
+            logger.info(
+                "Processing entire page image without boundary extraction..."
+            )
+            page_dets = _extract_detections_from_image(
+                page_im,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
+
+            # Adjust and save detections with no offset
+            _adjust_and_save_detections(
+                page_dets,
+                0,  # No x offset
+                0,  # No y offset
+                page_render_scale,
+            )
 
         page_obj.close()
 

@@ -204,3 +204,6 @@ resources/need_annotation/*
 
 # experiments
 ocr/experiments/*
+
+# vscode
+.vscode/settings.json
