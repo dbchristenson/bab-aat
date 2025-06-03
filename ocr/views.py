@@ -355,6 +355,14 @@ def trigger_document_detections(request, document_id):
                 f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
             )
 
+            # Delete existing annotated images for this document and config
+            for page in document.pages.all():
+                page.delete_annotated_image(config.id)
+                logger.info(
+                    f"Deleted annotated image for document {document.id}, "
+                    f"page {page.page_number}, config {config.name}"
+                )
+
             get_document_detections_task.delay(document.id, config.id)
             logger.info(
                 f"Triggered OCR task for document {document_id} with config {config_id}"  # noqa E501

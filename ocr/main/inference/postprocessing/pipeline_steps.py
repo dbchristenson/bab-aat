@@ -266,6 +266,9 @@ def spell_check_tags(tag_det_data: list[tuple]) -> list[tuple]:
     """
     logger.info("Spell checking tags.")
     spell = SpellChecker()
+    spell.word_frequency.load_dictionary(
+        "ocr/main/inference/postprocessing/bumi_words.json"
+    )
 
     new_data = []
 

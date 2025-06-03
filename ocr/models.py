@@ -97,6 +97,23 @@ class Page(models.Model):
             return f"{settings.MEDIA_URL}{image_path}"
         return None
 
+    def delete_annotated_image(self, config_id):
+        """
+        Delete the annotated image for a specific config.
+        This method removes the image from the database and filesystem.
+        """
+        import os
+
+        from django.conf import settings
+
+        image_path = self.annotated_images.get(str(config_id))
+        if image_path:
+            full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+            del self.annotated_images[str(config_id)]
+            self.save()
+
 
 class OCRConfig(models.Model):
     """
