@@ -27,8 +27,8 @@
 
 {% block content %}
 <div class="container my-4">
-    <div class="row g-3 mb-4 align-items-end">
-        <h2 class="col-auto">Detections {{ document.document_number }}</h2>
+    <div class="row g-3 mb-4 align-items-end justify-content-between">
+        <h2 class="col-auto">{{ document.document_number }}</h2>
 
         <div class="col-md-4">
             <label class="form-label" for="configDropdownButton">
@@ -66,7 +66,9 @@
                 </div><!-- /.dropdown-menu -->
             </div><!-- /.dropdown -->
         </div><!-- /.col -->
-        <div class="col-md-3">
+    </div>
+    <div class="row g-3 mb-4 align-items-end">
+        <div class="col-md-3"> <!--GET DETECTIONS-->
             {% if selected_config %}
             <form method="POST"
                 action="{% url 'ocr:trigger_document_detections' document.id %}"
@@ -82,7 +84,7 @@
                 (Select Config First)</button>
             {% endif %}
         </div>
-        <div class="col-md-3">
+        <div class="col-md-3"> <!--DRAW OCR IMAGE-->
             {% if draw_ocr %}
             <form method="POST"
                 action="{% url 'ocr:trigger_draw_ocr' document.id %}"
@@ -92,6 +94,42 @@
                     value="{{ selected_config.id }}">
                 <button type="submit" class="btn btn-primary w-100">
                     Draw OCR Results
+                </button>
+            </form>
+            {% else %}
+            <button type="button" class="btn btn-primary w-100 disabled">
+                No Tags Available
+            </button>
+            {% endif %}
+        </div>
+        <div class="col-md-3"> <!--EXPORT EXCEL-->
+            {% if tags %}
+            <form method="POST" 
+                action="{% url 'ocr:export_excel' document.id %}"
+                class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="config_id"
+                    value="{{ selected_config.id }}">
+                <button type="submit" class="btn btn-primary w-100">
+                    Export Excel
+                </button>
+            </form>
+            {% else %}
+            <button type="button" class="btn btn-primary w-100 disabled">
+                No Tags Available
+            </button>
+            {% endif %}
+        </div>
+        <div class="col-md-3"> <!--EXPORT PDF-->
+            {% if tags %}
+            <form method="POST" 
+                action="{% url 'ocr:export_pdf' document.id %}" 
+                class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="config_id" 
+                    value="{{ selected_config.id}}">
+                <button type="submit" class="btn btn-primary w-100">
+                    Export PDF
                 </button>
             </form>
             {% else %}

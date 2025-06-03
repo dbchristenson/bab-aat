@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict, deque
 
 from loguru import logger
@@ -200,6 +201,34 @@ def remove_numeric_only_tags(
     return new_data
 
 
+def _skip_EXX_tags(text: str) -> bool:
+    """
+    Check if the text is an EXX tag.
+
+    EXX tags are typically in the format "EXX" where the X's are digits.
+    Args:
+        text (str): The text to check.
+    Returns:
+        bool: True if the text is an EXX tag, False otherwise.
+    """
+    pattern = r"^[()\[\]/\\]*E\d{2}[()\[\]/\\]*$"
+    return bool(re.fullmatch(pattern, text))
+
+
+def _remove_specified_chars(word: str) -> str:
+    """
+    Removes specified special characters from a string.
+
+    Args:
+        word: The input string.
+    Returns:
+        The string with specified characters removed.
+    """
+    chars_to_remove = "(){}[]\\/"
+    translation_table = str.maketrans("", "", chars_to_remove)
+    return word.translate(translation_table)
+
+
 def _correct_text_if_needed(
     text_to_check: str,
     spell_checker: SpellChecker,
@@ -222,9 +251,11 @@ def _correct_text_if_needed(
 
     for current_word in words:
         # Only attempt to correct words containing letters and of min length
+        current_word = _remove_specified_chars(current_word)
         if (
             not any(c.isalpha() for c in current_word)
             or len(current_word) < min_word_len_for_correction
+            or _skip_EXX_tags(current_word)
         ):
             corrected_word_list.append(current_word)
             continue
