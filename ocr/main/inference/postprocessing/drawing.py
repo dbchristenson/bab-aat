@@ -114,7 +114,7 @@ def visualize_document_results(document_id: int, config_id: int) -> list[str]:
         list[str]: List of file paths to the generated images.
     """
     # Use a consistent render scale - we'll use 2x for good quality
-    render_scale = 4.0
+    render_scale = 2
 
     # Load PDF and get pages
     pdf_pages = _load_pdf_and_rotate(document_id)

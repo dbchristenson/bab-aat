@@ -252,7 +252,7 @@ KNOWN_OCR_CONFIGS_TO_PREWARM = {
         "enable_hpi": False,
         "text_det_limit_type": "max",
         "text_det_unclip_ratio": 2,
-        "text_det_limit_side_len": 2880,
+        "text_det_limit_side_len": 4736,
         "use_textline_orientation": True,
         "text_detection_model_name": "PP-OCRv5_mobile_det",
         "text_recognition_model_name": "PP-OCRv5_mobile_rec",
