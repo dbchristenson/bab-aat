@@ -180,7 +180,6 @@ class Tag(models.Model):
             self.equipment_tag = True
         else:
             self.equipment_tag = False
-        self.save(update_fields=["equipment_tag"])
 
 
 class Detection(models.Model):

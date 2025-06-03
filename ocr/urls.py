@@ -46,4 +46,9 @@ urlpatterns = [
         views.trigger_draw_ocr,
         name="trigger_draw_ocr",
     ),
+    path(
+        "documents/process_detections/",
+        views.process_detections,
+        name="process_detections",
+    ),
 ]

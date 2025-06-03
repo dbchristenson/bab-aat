@@ -509,3 +509,51 @@ def detect_success(request):
     Render the detection success page.
     """
     return render(request, "detect_success.html")
+
+
+# PROCESS DETECTIONS
+# ------------------------------------------------------------------------------
+def process_detections(request):
+    """
+    View for processing detections to tags on documents.
+    """
+    from ocr.forms import ProcessDetectionsFormByUnprocessed
+    from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
+    from ocr.tasks import process_detections_to_tags
+
+    show_no_documents_modal = False
+    if request.method == "POST":
+        form = ProcessDetectionsFormByUnprocessed(request.POST)
+        if form.is_valid():
+            vessel = form.cleaned_data["vessel"]
+            origin = form.cleaned_data["origin"]
+            only_without = form.cleaned_data["only_without_tags"]
+
+            # Build query
+            query = Document.objects.filter(vessel=vessel)
+            if origin:
+                query = query.filter(department_origin=origin)
+            if only_without:
+                query = query.exclude(pages__detections__tag__isnull=False)
+
+            # Get document IDs
+            document_ids = list(query.values_list("id", flat=True))
+
+            if document_ids:
+                task_ids = _chunk_and_dispatch_tasks(
+                    document_ids,
+                    process_detections_to_tags.delay,
+                    chunk_size=10,
+                )
+                logger.info(f"Dispatched {len(task_ids)} tasks for processing")
+                return redirect("ocr:detect_success")
+            else:
+                show_no_documents_modal = True
+    else:
+        form = ProcessDetectionsFormByUnprocessed()
+
+    return render(
+        request,
+        "process_detections.html",
+        {"form": form, "show_no_documents_modal": show_no_documents_modal},
+    )
