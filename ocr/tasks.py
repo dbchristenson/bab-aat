@@ -170,6 +170,13 @@ def get_document_detections(self, document_id: int, config_id: int):
         config_id=config_id,
     )
 
+    # Pass off task to process_detections_to_tags
+    logger.info(
+        f"Completed detection for document {document_id}. "
+        f"Passing to post-processing."
+    )
+    process_detections_to_tags.delay(document_id=document_id)
+
 
 # Post-processing
 @shared_task(bind=True, ignore_result=False)

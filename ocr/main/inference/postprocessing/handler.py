@@ -30,6 +30,7 @@ def _save_tags(tag_data: list[tuple[Tag, list[Detection]]]):
     for tag, detections in tag_data:
         try:
             with transaction.atomic():
+                tag.resolve_is_equipment_tag()
                 tag.save()
                 for detection in detections:
                     detection.tag = tag
