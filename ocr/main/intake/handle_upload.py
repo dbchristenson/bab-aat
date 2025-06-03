@@ -1,16 +1,13 @@
-import logging
 import os
 import shutil
 import zipfile
 
 from django.core.files import File
+from loguru import logger
 
 from babaatsite.settings import MEDIA_ROOT
-from ocr.main.utils.loggers import basic_logging
 from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
 from ocr.tasks import process_pdf_task
-
-basic_logging(__name__)
 
 
 def unzip_file(zip_path: str) -> str:
@@ -26,7 +23,7 @@ def unzip_file(zip_path: str) -> str:
     """
     if not zipfile.is_zipfile(zip_path):
         error_msg = f"File at {zip_path} is not a valid zip file."
-        logging.error(error_msg)
+        logger.error(error_msg)
         raise ValueError(error_msg)
 
     # Construct the destination directory path
@@ -39,17 +36,17 @@ def unzip_file(zip_path: str) -> str:
     try:
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
             zip_ref.extractall(dest_dir)
-        logging.info(f"Extracted zip file to {dest_dir}")
+        logger.info(f"Extracted zip file to {dest_dir}")
     except Exception as e:
-        logging.error(f"Error extracting zip file at {zip_path}: {e}")
+        logger.error(f"Error extracting zip file at {zip_path}: {e}")
         raise
 
     # Delete the zip file after extraction
     try:
         os.remove(zip_path)
-        logging.info(f"Deleted zip file at {zip_path}")
+        logger.info(f"Deleted zip file at {zip_path}")
     except Exception as e:
-        logging.error(f"Error deleting zip file at {zip_path}: {e}")
+        logger.error(f"Error deleting zip file at {zip_path}: {e}")
 
     return dest_dir
 
@@ -109,7 +106,7 @@ def handle_uploaded_file(django_file: File, vessel_id: int) -> None:
     ext = django_file.name.rsplit(".", 1)[-1].lower()
     if ext == "pdf":
         pdf_paths = [disk_path]
-        logging.info(f"PDF path: {pdf_paths}")
+        logger.info(f"PDF path: {pdf_paths}")
     else:
         # unzip then collect PDFs
         extract_dir = unzip_file(disk_path)

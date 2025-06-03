@@ -1,19 +1,15 @@
 import datetime as dt
-import logging
 import os
 
 import django
+from loguru import logger
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "babaatsite.settings")
 django.setup()
 
 import pandas as pd  # noqa E402
 
-from ocr.main.utils.loggers import basic_logging  # noqa E402
 from ocr.models import Document, Truth  # noqa E402
-
-basic_logging(__name__)
-
 
 # Okay to run this script its kinda complicated but here is what to do.
 # From your terminal at the root of the project run the following command:
@@ -47,7 +43,9 @@ def et_kraken(spreadsheet_path: str) -> pd.DataFrame:
     new_df = new_df.dropna()
 
     # Remove rows with UNTAGGED in the tag_number string
-    new_df = new_df[new_df["tag_number"].str.contains("UNTAGGED") == False]  # noqa E712
+    new_df = new_df[
+        new_df["tag_number"].str.contains("UNTAGGED") == False
+    ]  # noqa E712
 
     return new_df
 
@@ -73,7 +71,7 @@ def load_kraken(kraken_df: pd.DataFrame) -> None:
         # Save the object to the database
         truth.save()
 
-    logging.info(f"Loaded {len(kraken_df)} truths into the database.")
+    logger.info(f"Loaded {len(kraken_df)} truths into the database.")
 
     return
 

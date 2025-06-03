@@ -1,5 +1,8 @@
+from pathlib import Path
+
+import markdown
+from django.conf import settings
 from django.core.paginator import Paginator
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from loguru import logger
@@ -14,17 +17,101 @@ from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
-from ocr.main.utils.draw_detections import draw_detections
-from ocr.models import Detection, Document, OCRConfig, Page, Truth, Vessel
+from ocr.models import Detection, Document, OCRConfig, Page, Vessel
+from ocr.tasks import draw_ocr_results as draw_ocr_results_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
 def index(request):
     """
-    Render the index page.
+    Render the index page with documentation from markdown file.
     """
+    context = {
+        "markdown_content": "",
+        "markdown_error": None,
+        "toc": None,
+        "expected_path": None,
+    }
 
-    return HttpResponse("Welcome to the OCR API!")
+    MARKDOWN_AVAILABLE = True
+    if not MARKDOWN_AVAILABLE:
+        context["markdown_error"] = (
+            "Markdown library not installed. Please run: pip install markdown"
+        )
+        context["expected_path"] = "pip install markdown"
+        return render(request, "index.html", context)
+
+    # Look for documentation files in order of preference
+    doc_paths = [
+        Path(settings.BASE_DIR) / "README.md",
+        Path(settings.BASE_DIR) / "docs" / "README.md",
+        Path(settings.BASE_DIR) / "docs" / "index.md",
+        Path(settings.BASE_DIR) / "DOCUMENTATION.md",
+        Path(settings.BASE_DIR) / "ocr" / "docs" / "README.md",
+    ]
+
+    markdown_file = None
+    for path in doc_paths:
+        if path.exists():
+            markdown_file = path
+            break
+
+    if markdown_file:
+        try:
+            # Configure markdown with extensions
+            md = markdown.Markdown(
+                extensions=[
+                    "toc",
+                    "fenced_code",
+                    "tables",
+                    "codehilite",
+                    "attr_list",
+                ],
+                extension_configs={
+                    "toc": {
+                        "permalink": True,
+                        "permalink_class": "header-link",
+                        "permalink_title": "Link to this section",
+                    },
+                    "codehilite": {
+                        "css_class": "highlight",
+                        "use_pygments": False,
+                    },
+                },
+            )
+
+            # Read and convert markdown
+            with open(markdown_file, "r", encoding="utf-8") as f:
+                markdown_text = f.read()
+
+            # Convert to HTML
+            html_content = md.convert(markdown_text)
+
+            context.update(
+                {
+                    "markdown_content": html_content,
+                    "toc": md.toc if hasattr(md, "toc") and md.toc else None,
+                }
+            )
+
+            logger.info(
+                f"Successfully loaded documentation from {markdown_file}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error reading markdown file {markdown_file}: {e}")
+            context["markdown_error"] = (
+                f"Error reading documentation file: {str(e)}"
+            )
+            context["expected_path"] = str(markdown_file)
+    else:
+        context["markdown_error"] = "No documentation file found"
+        context["expected_path"] = " or ".join(str(p) for p in doc_paths)
+        logger.warning(
+            "No documentation markdown file found in expected locations"
+        )
+
+    return render(request, "index.html", context)
 
 
 # UPLOAD
@@ -70,6 +157,15 @@ def upload_success(request):
 
 # DOCUMENTS
 # ------------------------------------------------------------------------------
+def _count_documents_with_out_detections():
+    """
+    Count the number of documents that do not have any detections.
+    This is used to display a warning on the documents page if there
+    are documents without detections.
+    """
+    return Document.objects.exclude(pages__detections__isnull=False).count()
+
+
 def documents(request):
     """
     Render the documents page with filtering options.
@@ -97,6 +193,11 @@ def documents(request):
     doc_number = request.GET.get("document_number", "").strip()
     if doc_number:
         documents = documents.filter(document_number__icontains=doc_number)
+
+    # Filter for documents without detections
+    no_detections_only = request.GET.get("no_detections", "").lower() == "true"
+    if no_detections_only:
+        documents = documents.exclude(pages__detections__isnull=False)
 
     sort_key = request.GET.get("sort", "id")  # 'id' or 'file_size'
     order = request.GET.get("order", "asc")  # 'asc' or 'desc'
@@ -143,6 +244,8 @@ def documents(request):
         "base_query": "&".join(
             f"{k}={v}" for k, v in request.GET.items() if k not in ["page"]
         ),
+        "documents_without_dets_count": _count_documents_with_out_detections(),
+        "no_detections_only": no_detections_only,
     }
 
     return render(request, "documents.html", context)
@@ -155,50 +258,79 @@ def document_detail(request, document_id):
     associated detections if they have been created.
     """
     selected_config_id = request.GET.get("config_id", None)
-    all_configs = OCRConfig.objects.all().order_by("name")
-    selected_config = None
 
     if selected_config_id:
         try:
             selected_config = OCRConfig.objects.get(id=selected_config_id)
         except OCRConfig.DoesNotExist:
             logger.warning(f"Config with id {selected_config_id} not found.")
-            # Optionally, fall back to the first config or no config
-            if all_configs.exists():
-                selected_config = all_configs.first()
-    elif all_configs.exists():
-        selected_config = all_configs.first()
+    else:
+        try:
+            selected_config = OCRConfig.objects.get(name="production")
+        except OCRConfig.DoesNotExist:
+            logger.warning(
+                "No default config found, setting selected_config to None."
+            )
+            selected_config = None
 
     document = get_object_or_404(Document, id=document_id)
     pages = Page.objects.filter(document=document).order_by("page_number")
 
-    page_detections = []
+    page_data = []
     if selected_config:
         for p in pages:
             dets = Detection.objects.filter(page=p, config=selected_config)
-            page_detections.append((p, dets))
+            if dets.exists():
+                annotated_image_url = p.get_annotated_image_url(
+                    config_id=selected_config.id
+                )
+                if annotated_image_url:
+                    # Log the retrieval of the annotated image URL
+                    logger.debug(
+                        f"Image URL for page {p.id}: {annotated_image_url}"
+                    )
+                page_data.append(
+                    {
+                        "page": p,
+                        "detections": dets,
+                        "annotated_img_url": annotated_image_url,
+                    }
+                )
 
-    associated_truths = Truth.objects.filter(
-        document_number=document.document_number
-    )
-    truths_list = (
-        list(associated_truths.values_list("text", flat=True))
-        if associated_truths.exists()
-        else []
-    )
+            else:
+                logger.info(
+                    f"No detections found for document {document_id}, "
+                    f"page {p.page_number}, config {selected_config.name}"
+                )
+    else:
+        logger.warning("No OCRConfig selected, no detections will be shown.")
+
+    # check if page_detections
+    draw_ocr = bool(page_data)
+    logger.info(f"draw_ocr: {draw_ocr}")
+    logger.info(f"page_data: {page_data}")
+    for data in page_data:
+        logger.info(f"{data['annotated_img_url']}")
 
     context = {
         "document": document,
-        "page_detections": page_detections,
-        "configs": all_configs,
+        "page_data": page_data,
+        "configs": OCRConfig.objects.all(),
         "selected_config": selected_config,
-        "truths": truths_list,
+        "draw_ocr": draw_ocr,
         "vessel": document.vessel.name if document.vessel else None,
     }
+
     return render(request, "document_detail.html", context)
 
 
 def trigger_document_detections(request, document_id):
+    """
+    Trigger OCR detection for a specific document using a selected OCR config.
+    This function handles the POST request to start the OCR task for the
+    specified document and config. It deletes any existing detections for
+    the document and config before starting the new OCR task.
+    """
     if request.method == "POST":
         config_id = request.POST.get("config_id")
         if not config_id:
@@ -223,12 +355,60 @@ def trigger_document_detections(request, document_id):
                 f"Deleted existing detections for document {document.id} and config {config.name}"  # noqa E501
             )
 
+            # Delete existing annotated images for this document and config
+            for page in document.pages.all():
+                page.delete_annotated_image(config.id)
+                logger.info(
+                    f"Deleted annotated image for document {document.id}, "
+                    f"page {page.page_number}, config {config.name}"
+                )
+
             get_document_detections_task.delay(document.id, config.id)
             logger.info(
                 f"Triggered OCR task for document {document_id} with config {config_id}"  # noqa E501
             )
         except Exception as e:
             logger.error(f"Error triggering OCR task: {e}")
+
+        return redirect(
+            reverse("ocr:document_detail", args=[document_id])
+            + f"?config_id={config_id}"
+        )
+    # Should not be reached via GET, or handle appropriately
+    return redirect(reverse("ocr:document_detail", args=[document_id]))
+
+
+def trigger_draw_ocr(request, document_id):
+    """
+    Trigger the drawing of OCR results for a specific document.
+    This function handles the POST request to draw OCR results on the
+    specified document's pages.
+
+    Args:
+        request: The HTTP request object.
+        document_id: The ID of the document to draw OCR results on.
+        config_id: The ID of the OCRConfig to use for drawing.
+
+    Returns:
+        Redirects to a new URL with the rendered bounding boxes of the
+        OCR results on the document's pages.
+    """
+    if request.method == "POST":
+        config_id = request.POST.get("config_id")
+
+        try:
+            draw_ocr_results_task.delay(document_id, config_id)
+
+            logger.info(
+                f"Drawing OCR results for document {document_id} with config {config_id}"  # noqa E501
+            )
+
+            return redirect(
+                reverse("ocr:document_detail", args=[document_id])
+                + f"?config_id={config_id}",
+            )
+        except Exception as e:
+            logger.error(f"Error triggering draw OCR: {e}")
 
         return redirect(
             reverse("ocr:document_detail", args=[document_id])
@@ -300,15 +480,20 @@ def detect_by_origin(request):
             vessel = form.cleaned_data["vessel"]
             department_origin = form.cleaned_data["department_origin"]
             config = form.cleaned_data["config"]
+            only_without_detections = form.cleaned_data[
+                "only_without_detections"
+            ]
             logger.info(
                 f"Selected vessel: {vessel.name}, "
                 f"origin: {department_origin}, "
-                f"config: {config.name}"
+                f"config: {config.name}, "
+                f"only_without_detections: {only_without_detections}"
             )
             task_results = handle_batch_document_detections(
                 vessel_id=vessel.id,
                 department_origin=department_origin,
                 config_id=config.id,
+                only_without_detections=only_without_detections,
             )
 
             if not task_results:
@@ -332,3 +517,51 @@ def detect_success(request):
     Render the detection success page.
     """
     return render(request, "detect_success.html")
+
+
+# PROCESS DETECTIONS
+# ------------------------------------------------------------------------------
+def process_detections(request):
+    """
+    View for processing detections to tags on documents.
+    """
+    from ocr.forms import ProcessDetectionsFormByUnprocessed
+    from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
+    from ocr.tasks import process_detections_to_tags
+
+    show_no_documents_modal = False
+    if request.method == "POST":
+        form = ProcessDetectionsFormByUnprocessed(request.POST)
+        if form.is_valid():
+            vessel = form.cleaned_data["vessel"]
+            origin = form.cleaned_data["origin"]
+            only_without = form.cleaned_data["only_without_tags"]
+
+            # Build query
+            query = Document.objects.filter(vessel=vessel)
+            if origin:
+                query = query.filter(department_origin=origin)
+            if only_without:
+                query = query.exclude(pages__detections__tag__isnull=False)
+
+            # Get document IDs
+            document_ids = list(query.values_list("id", flat=True))
+
+            if document_ids:
+                task_ids = _chunk_and_dispatch_tasks(
+                    document_ids,
+                    process_detections_to_tags.delay,
+                    chunk_size=10,
+                )
+                logger.info(f"Dispatched {len(task_ids)} tasks for processing")
+                return redirect("ocr:detect_success")
+            else:
+                show_no_documents_modal = True
+    else:
+        form = ProcessDetectionsFormByUnprocessed()
+
+    return render(
+        request,
+        "process_detections.html",
+        {"form": form, "show_no_documents_modal": show_no_documents_modal},
+    )

@@ -1,7 +1,6 @@
 from loguru import logger
 
 from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
-from ocr.models import Document
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 # Define a default chunk size for dispatching tasks
@@ -9,8 +8,55 @@ CHUNK_SIZE = 20
 
 
 def handle_batch_document_detections(
-    vessel_id: int, department_origin: str, config_id: int
+    vessel_id: int,
+    department_origin: str,
+    config_id: int,
+    only_without_detections: bool = False,
 ) -> list:
+    """
+    Handle batch document detections for a given vessel and department origin.
+
+    Args:
+        vessel_id: ID of the vessel to filter documents
+        department_origin: Department origin to filter documents
+        config_id: OCR configuration ID to use
+        only_without_detections: If True, only process docs without detections
+
+    Returns:
+        List of task results or empty list if no documents found
+    """
+    logger.info(
+        f"Starting batch detection: vessel_id={vessel_id}, "
+        f"department_origin={department_origin}, "
+        f"config_id={config_id}, "
+        f"only_without_detections={only_without_detections}"
+    )
+
+    from ocr.models import Document
+
+    # Base query for documents
+    documents = Document.objects.filter(
+        vessel_id=vessel_id, department_origin=department_origin
+    )
+
+    # Filter out documents that already have detections if requested
+    if only_without_detections:
+        documents = documents.exclude(pages__detections__config_id=config_id)
+        logger.info("Filtering to only documents without detections")
+
+    if not documents.exists():
+        logger.warning(
+            f"No documents found for vessel_id={vessel_id}, "
+            f"department_origin={department_origin}, "
+            f"only_without_detections={only_without_detections}"
+        )
+        return []
+
+    logger.info(
+        f"Found {documents.count()} documents to process. "
+        f"only_without_detections={only_without_detections}"
+    )
+
     """
     Queries documents based on vessel ID and department origin,
     then dispatches OCR detection tasks for them in chunks using the

@@ -51,3 +51,7 @@ def configure_logging(log_level: str = "INFO") -> None:
         f"Loguru logging configured. Level: {log_level.upper()}. "
         f"Log file: {log_path / svc_log_name}"
     )
+
+
+def configure_modal() -> None:
+    pass

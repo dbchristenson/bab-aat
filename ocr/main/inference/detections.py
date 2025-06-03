@@ -1,95 +1,179 @@
-import cv2 as cv
+import gc
+
 import numpy as np
 from loguru import logger
-from paddleocr import PaddleOCR
-from pypdfium2 import PdfDocument
 
 from ocr.main.inference.preprocessing.boundaries import figure_table_extraction
-from ocr.main.utils.extract_ocr_results import (
-    get_bbox,
-    get_confidence,
-    get_ocr,
-)
-from ocr.main.utils.page_to_img import rotate_landscape
-from ocr.models import Detection, Document, Page
+from ocr.main.utils.pdf_utils import get_pdf_object, page_to_image
+from ocr.models import Detection, Page
+
+
+def _build_detection_list(
+    results, page_id: int, config_id: int, min_confidence: float = 0.6
+) -> list[Detection]:
+    """
+    Helper function for _extract_detections_from_image to build a list
+    of Detection objects.
+
+    Args:
+        results: Results object from the OCR network.
+        page_id (int): The ID of the Page object this image belongs to.
+        config_id (int): The ID of the OCRConfig object used.
+
+    Returns:
+        list[Detection]: List of Detection objects created from the OCR.
+    """
+    # Our predictions come from images so len(results) = 1
+    result_dict = results[0]
+
+    detections = []
+    for text, score, bbox in zip(
+        result_dict["rec_texts"],
+        result_dict["rec_scores"],
+        result_dict["rec_polys"],
+    ):
+        if score < min_confidence:  # Default minimum confidence threshold
+            continue
+
+        det = Detection(
+            page_id=page_id,
+            bbox=bbox,
+            confidence=score,
+            text=text,
+            config_id=config_id,
+        )
+        detections.append(det)
+
+    return detections
 
 
 def _extract_detections_from_image(
-    image_np: np.ndarray, ocr: PaddleOCR, config_id: int, page_db_id: int
+    image_np: np.ndarray,
+    # ocr,
+    paddle_config: dict,
+    config_id: int,
+    page_db_id: int,
+    min_confidence: float = 0.6,
 ) -> list[Detection]:
     """
     Get detections for a given image numpy array using the OCR network.
-    Detections are not saved to the database by this function.
+    Enhanced with granular memory monitoring and immediate cleanup.
 
     Args:
         image_np (np.ndarray): The image numpy array to process.
         ocr (PaddleOCR): The configured OCR network.
         config_id (int): The id of the OCRConfig object used.
         page_db_id (int): The ID of the Page object this image belongs to.
+        min_confidence (float): Minimum confidence threshold for detections.
 
     Returns:
         list[Detection]: List of detection objects for the image.
     """
-    # Perform OCR on the image
-    ocr_results = ocr.ocr(image_np, cls=True, bin=True)
-    if (
-        not ocr_results or not ocr_results[0]
-    ):  # Ensure results are not None or empty
-        logger.info(
-            f"[{config_id}] No OCR results for image w/ page id = {page_db_id}"  # noqa E501
+    import modal
+
+    logger.info(f"Starting OCR session for page {page_db_id}...")
+    logger.debug(f"image_np shape, dtype: {image_np.shape}, {image_np.dtype}")
+
+    # Ensure image has 3 channels (RGB) as expected by PaddleOCR
+    if len(image_np.shape) == 2:
+        logger.debug("Converting 2D grayscale image to 3-channel RGB")
+        image_np = np.stack([image_np] * 3, axis=2)
+        logger.debug(f"After conversion, shape: {image_np.shape}")
+    elif len(image_np.shape) == 3 and image_np.shape[2] == 1:
+        logger.debug("Converting single-channel image to 3-channel RGB")
+        image_np = np.repeat(image_np, 3, axis=2)
+        logger.debug(f"After conversion, shape: {image_np.shape}")
+
+    try:
+        logger.debug(f"Getting modal function for page {page_db_id}")
+        ocr_fn = modal.Function.from_name("modal-ocr", "ocr_inference")
+
+        logger.debug(f"Calling remote OCR function for page {page_db_id}")
+        ocr_results = ocr_fn.remote(
+            im_numpy=image_np, config_id=config_id, paddle_config=paddle_config
+        )
+
+        logger.debug(f"Checking OCR results for page {page_db_id}")
+        if not ocr_results or not ocr_results[0]:
+            logger.info(f"[{config_id}] No OCR results for page {page_db_id}")
+            return []
+
+        logger.debug(f"Building detection list for page {page_db_id}")
+        detections = _build_detection_list(
+            ocr_results, page_db_id, config_id, min_confidence
+        )
+
+        logger.debug(
+            f"Successfully processed {len(detections)} detections for page "
+            f"{page_db_id}"
+        )
+        return detections
+
+    except Exception as e:
+        import traceback
+
+        tb_str = traceback.format_exc()
+        logger.error(
+            f"Error in OCR processing for page {page_db_id}: {e}\n"
+            f"Full traceback:\n{tb_str}",
+            exc_info=True,
         )
         return []
 
-    lines = ocr_results[0]
+    # Clean up
+    finally:
+        try:
+            # Only try to delete ocr_results if it was successfully created
+            if "ocr_results" in locals() and ocr_results is not None:
+                del ocr_results
 
-    logger.info(
-        f"[{config_id}] Detected {len(lines)} lines on image for page ID {page_db_id}"  # noqa E501
-    )
+            gc.collect()
 
-    detections: list[Detection] = []
-    for line_idx, line_data in enumerate(lines):
-        bbox = get_bbox(line_data)
-        confidence = get_confidence(line_data)
-        text = get_ocr(line_data)
-
-        logger.debug(
-            f"[{config_id}] Page ID {page_db_id} - Line {line_idx}: Text: {text}, BBox: {bbox}, Confidence: {confidence}"  # noqa E501
-        )
-
-        det = Detection(
-            page_id=page_db_id,  # Use the passed page_db_id
-            bbox=bbox,
-            confidence=confidence,
-            text=text,
-            config_id=config_id,
-        )
-        detections.append(det)
-
-    logger.info(
-        f"[{config_id}] Extracted {len(detections)} detections for page ID {page_db_id}"  # noqa E501
-    )
-
-    return detections
+        except Exception as cleanup_error:
+            logger.error(f"Error during cleanup: {cleanup_error}")
 
 
-def _save_adjusted_detections(
-    detections: list[Detection], offset_x: int, offset_y: int
+def _adjust_and_save_detections(
+    detections: list[Detection],
+    offset_x: int,
+    offset_y: int,
+    page_render_scale: float,
 ) -> list[Detection]:
     """
-    Adjusts the bbox coordinates of detections by an offset and saves them.
+    Adjusts the bbox coordinates of detections and saves them.
+
+    We have two adjustments to make to the bbox:
+    1. Add the offset_x and offset_y to each point in the bbox.
+    2. Rescale the bbox points using the page_render_scale factor.
+
+    Because we scale the page to a higher resolution for rendering,
+    we need to adjust the bbox points accordingly to match the original
+    dimensions.
+
+    The bboxes are in the format [[x1,y1],[x2,y2],[x3,y3],[x4,y4]].
 
     Args:
         detections (list[Detection]): List of raw detection objects.
         offset_x (int): The x-coordinate offset to add to bbox points.
         offset_y (int): The y-coordinate offset to add to bbox points.
+        page_render_scale (float): Upscaling factor for getting detections.
 
     Returns:
         list[Detection]: List of saved detection objects with adjusted bboxes.
     """
     saved_detections = []
     for det in detections:
-        # Adjust bbox: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+        logger.debug(det.bbox)
+        logger.debug(type(det.bbox))
+        logger.debug(np.array(det.bbox).shape)
+        logger.debug(np.array(det.bbox)[0])
+        # Adjust poly: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
         adjusted_bbox = [[p[0] + offset_x, p[1] + offset_y] for p in det.bbox]
+        # Rescale bbox points
+        adjusted_bbox = [
+            [p[0] / page_render_scale, p[1] / page_render_scale]
+            for p in adjusted_bbox
+        ]
         det.bbox = adjusted_bbox
         det.save()
         saved_detections.append(det)
@@ -97,70 +181,6 @@ def _save_adjusted_detections(
             f"[{det.config.name}] Saved detection ID {det.id} for page ID {det.page_id} with adjusted bbox: {det.bbox}"  # noqa E501
         )
     return saved_detections
-
-
-def _get_pdf_object(document_id: int) -> PdfDocument:
-    """
-    Get the PDF document object for a given document ID.
-
-    Args:
-        document_id (int): The ID of the document.
-
-    Returns:
-        PdfDocument: The PDF document object.
-    """
-    logger.info(f"Fetching document with ID: {document_id} for PDF object")
-    try:
-        document = Document.objects.get(id=document_id)
-    except Document.DoesNotExist:
-        logger.error(
-            f"Document with ID {document_id} not found in _get_pdf_object."
-        )
-        raise
-
-    try:
-        with document.file.open("rb") as f:  # Open in binary read mode
-            pdf_bytes = f.read()
-        logger.info(f"Read {len(pdf_bytes)} bytes from document {document_id}")
-        pdf = PdfDocument(pdf_bytes)  # Load from bytes
-        logger.info(f"Successfully loaded PDF for document {document_id}")
-        return pdf
-    except Exception as e:
-        logger.error(
-            f"Error opening or loading PDF for document {document_id}: {e}",
-            exc_info=True,
-        )
-        raise
-
-
-def _page_to_image(page_obj, page_render_scale: float = 4.0):
-    """
-    Convert a PDF page object to an image.
-
-    Args:
-        page_obj: The PDF page object.
-        page_render_scale (float): Scale factor for rendering the page.
-
-    Returns:
-        PIL.Image: The rendered image of the page.
-    """
-    # Render the page to an image
-    page_obj = rotate_landscape(page_obj)
-    page_bitmap = page_obj.render(scale=page_render_scale)
-    page_pil = page_bitmap.to_pil()
-    image_np = np.array(page_pil)
-
-    if len(image_np.shape) == 3:
-        if image_np.shape[2] == 3:  # RGB
-            gray_image_np = cv.cvtColor(image_np, cv.COLOR_RGB2GRAY)
-        elif image_np.shape[2] == 4:  # RGBA
-            gray_image_np = cv.cvtColor(image_np, cv.COLOR_RGBA2GRAY)
-        else:  # Should not happen with typical PIL images from PDF
-            gray_image_np = image_np  # Fallback, but unlikely
-    else:  # Already grayscale or single channel
-        gray_image_np = image_np
-
-    return gray_image_np
 
 
 def _create_page_in_db(document_id: int, page_number: int) -> Page:
@@ -189,11 +209,11 @@ def _create_page_in_db(document_id: int, page_number: int) -> Page:
 
 def analyze_document(
     document_id: int,
-    ocr: PaddleOCR,
+    # ocr,
     config_id: int,
-    page_render_scale: float = 4.0,
     figure_kwargs: dict = None,
     table_kwargs: dict = None,
+    boundary_preprocessing: bool = False,
 ) -> list[Detection]:
     """
     Analyze a document by processing each page, extracting figure and table
@@ -201,11 +221,12 @@ def analyze_document(
 
     Args:
         document_id (int): The ID of the document to analyze.
-        ocr (PaddleOCR): The configured OCR network.
-        param_config (str): The name of the param_config or model used.
-        page_render_scale (float): Scale factor for rendering pages to images.
+        #ocr (PaddleOCR): The configured OCR network.
+        config_id (int): The ID of the OCRConfig object used.
         figure_kwargs (dict, optional): Arguments for figure extraction.
         table_kwargs (dict, optional): Arguments for table extraction.
+        boundary_preprocessing (bool): Whether to perform figure/table boundary
+            extraction. If False, processes the entire page image.
 
     Returns:
         list[Detection]: List of all saved detection objects for the document.
@@ -219,19 +240,29 @@ def analyze_document(
     if table_kwargs is None:
         table_kwargs = {}
 
-    pdf = _get_pdf_object(document_id)
-    all_document_detections: list[Detection] = []
-
+    pdf = get_pdf_object(document_id)
+    logger.info(
+        f"Loaded PDF document with {len(pdf)} pages for document {document_id}"
+    )  # noqa E501
     from ocr.models import OCRConfig  # Local import
 
     try:
         ocr_config_model_instance = OCRConfig.objects.get(pk=config_id)
         param_config_name = ocr_config_model_instance.name
+        paddle_params = ocr_config_model_instance.config["paddle"]
     except OCRConfig.DoesNotExist:
         logger.warning(
             f"OCRConfig with ID {config_id} not found. Using ID as name."
         )
         param_config_name = str(config_id)
+
+    try:
+        page_render_scale = ocr_config_model_instance.config["scale"]
+    except KeyError:
+        logger.warning(
+            f"Scale not found in OCRConfig with ID {config_id}. Using default."
+        )
+        page_render_scale = 4.0
 
     # Iterate through each page of the PDF
     for page_idx, page_obj in enumerate(pdf):
@@ -240,7 +271,7 @@ def analyze_document(
             f"[{config_id}] Processing page {page_number} for document {document_id}"  # noqa E501
         )
 
-        page_im = _page_to_image(page_obj, page_render_scale)
+        page_im = page_to_image(page_obj, page_render_scale)
 
         # Create page in db
         try:
@@ -252,41 +283,68 @@ def analyze_document(
             )
             continue
 
-        figure_im, table_im, figure_offset, table_offset = (
-            figure_table_extraction(
-                page_im, figure_kwargs=figure_kwargs, table_kwargs=table_kwargs
+        # Extract figure and table regions from the page image
+        if boundary_preprocessing:
+            figure_npd, table_npd, figure_offset, table_offset = (
+                figure_table_extraction(
+                    page_im,
+                    figure_kwargs=figure_kwargs,
+                    table_kwargs=table_kwargs,
+                )
             )
-        )
 
-        figure_dets = _extract_detections_from_image(
-            figure_im,
-            ocr,
-            config_id,
-            page_db.id,
-        )
-        table_dets = _extract_detections_from_image(
-            table_im,
-            ocr,
-            config_id,
-            page_db.id,
-        )
+            logger.info("Gathering detections for figures and tables...")
+            figure_dets = _extract_detections_from_image(
+                figure_npd,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
+            table_dets = _extract_detections_from_image(
+                table_npd,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
 
-        saved_figure_dets = _save_adjusted_detections(
-            figure_dets, figure_offset[0], figure_offset[1]
-        )
-        saved_table_dets = _save_adjusted_detections(
-            table_dets, table_offset[0], table_offset[1]
-        )
+            # Adjust and save detections
+            _adjust_and_save_detections(
+                figure_dets,
+                figure_offset[0],
+                figure_offset[1],
+                page_render_scale,
+            )
 
-        all_document_detections.extend(saved_figure_dets)
-        all_document_detections.extend(saved_table_dets)
+            _adjust_and_save_detections(
+                table_dets,
+                table_offset[0],
+                table_offset[1],
+                page_render_scale,
+            )
+        else:
+            logger.info(
+                "Processing entire page image without boundary extraction..."
+            )
+            page_dets = _extract_detections_from_image(
+                page_im,
+                # ocr,
+                paddle_params,
+                config_id,
+                page_db.id,
+            )
+
+            # Adjust and save detections with no offset
+            _adjust_and_save_detections(
+                page_dets,
+                0,  # No x offset
+                0,  # No y offset
+                page_render_scale,
+            )
 
         page_obj.close()
 
     pdf.close()
-    logger.info(
-        f"[{param_config_name}] Completed document {document_id}. "
-        f"Total detections: {len(all_document_detections)}"
-    )
 
-    return all_document_detections
+    logger.info(f"[{param_config_name}] Completed document {document_id}. ")

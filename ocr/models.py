@@ -69,22 +69,50 @@ class Document(models.Model):
 
 class Page(models.Model):
     """
-    A page is an image of a document. Page numbers are 0-indexed.
+    A page is an image of a document. Page numbers are 1-indexed.
 
     Params:
         document (Document): The document to which this page belongs.
-        page_number (int): The page number of the document (0-indexed).
+        page_number (int): The page number of the document (1-indexed).
         created_at (datetime): The date when the page was created.
+        annotated_images (JSON): Dict storing annotated image paths per config.
     """
 
     document = models.ForeignKey(
         Document, related_name="pages", on_delete=models.CASCADE
     )
-    page_number = models.IntegerField()  # 0-indexed
+    page_number = models.IntegerField()  # 1-indexed
     created_at = models.DateTimeField(auto_now_add=True)
+    annotated_images = models.JSONField(default=dict, blank=True)
 
     def __str__(self):
         return f"{self.document.name} - Page {self.page_number}"
+
+    def get_annotated_image_url(self, config_id):
+        """Get the URL for the annotated image for a specific config."""
+        from django.conf import settings
+
+        image_path = self.annotated_images.get(str(config_id))
+        if image_path:
+            return f"{settings.MEDIA_URL}{image_path}"
+        return None
+
+    def delete_annotated_image(self, config_id):
+        """
+        Delete the annotated image for a specific config.
+        This method removes the image from the database and filesystem.
+        """
+        import os
+
+        from django.conf import settings
+
+        image_path = self.annotated_images.get(str(config_id))
+        if image_path:
+            full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+            del self.annotated_images[str(config_id)]
+            self.save()
 
 
 class OCRConfig(models.Model):
@@ -103,32 +131,6 @@ class OCRConfig(models.Model):
 
     def __str__(self):
         return self.name
-
-
-class Detection(models.Model):
-    """
-    A detection is a recognized text block on a page.
-
-    Params:
-        page (Page): The page on which the detection was made.
-        text (str): The recognized text.
-        bbox (list): The bounding box coordinates of the detected text.
-        confidence (float): The confidence score of the detection.
-        experiment (str): The name of the experiment or model used.
-        created_at (datetime): The date when the detection was created.
-    """
-
-    page = models.ForeignKey(
-        Page, related_name="detections", on_delete=models.CASCADE
-    )
-    text = models.CharField(max_length=255)
-    bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-    confidence = models.FloatField()
-    config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
 
 
 class Tag(models.Model):
@@ -157,7 +159,7 @@ class Tag(models.Model):
     document = models.ForeignKey(
         Document, related_name="tags", on_delete=models.CASCADE, null=True
     )
-    page_number = models.IntegerField()  # 0-indexed
+    page_number = models.IntegerField()  # 1-indexed
     text = models.CharField(max_length=255)
     bbox = models.JSONField(
         help_text="Polygon coords [[x1,y1],…] of the merged shape"
@@ -167,19 +169,63 @@ class Tag(models.Model):
         null=True,
         help_text="e.g. 'circle_hough', 'dbscan', 'proximity_merge'",
     )
-    detections = models.ManyToManyField(
-        Detection,
-        related_name="tags",
-        help_text="Raw OCR lines used to build this tag",
-    )
     confidence = models.FloatField(
         null=True,
         help_text="Minimum confidence of the detections used in this tag",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    equipment_tag = models.BooleanField(default=False, null=True)
 
     def __str__(self):
         return f"{self.document.name} - {self.text}"
+
+    def resolve_is_equipment_tag(self):
+        """
+        Check Tag text to determine if it is an equipment tag.
+        If it is an equipment tag, set the equipment_tag field to True.
+
+        A Tag is an equipment tag if it contains at least one letter,
+        at least one number, and at least one hyphen.
+        """
+        import re
+
+        if (
+            re.search(r"[A-Za-z]", self.text)
+            and re.search(r"\d", self.text)
+            and re.search(r"-", self.text)
+        ):
+            self.equipment_tag = True
+        else:
+            self.equipment_tag = False
+
+
+class Detection(models.Model):
+    """
+    A detection is a recognized text block on a page.
+
+    Params:
+        page (Page): The page on which the detection was made.
+        text (str): The recognized text.
+        bbox (list): The bounding box coordinates of the detected text.
+        confidence (float): The confidence score of the detection.
+        experiment (str): The name of the experiment or model used.
+        created_at (datetime): The date when the detection was created.
+    """
+
+    page = models.ForeignKey(
+        Page, related_name="detections", on_delete=models.CASCADE
+    )
+    text = models.CharField(max_length=255)
+    bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+    confidence = models.FloatField()
+    config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    tag = models.ForeignKey(
+        Tag, related_name="detections", on_delete=models.CASCADE, null=True
+    )
+
+    def __str__(self):
+        return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
 
 
 class Truth(models.Model):

@@ -1,14 +1,11 @@
 import json
-import logging
 
 import magic
 from django import forms
 from django.core.validators import FileExtensionValidator
+from loguru import logger
 
-from ocr.main.utils.loggers import basic_logging
 from ocr.models import Document, OCRConfig, Vessel
-
-basic_logging(__name__)
 
 
 class UploadFileForm(forms.Form):
@@ -48,7 +45,7 @@ class UploadFileForm(forms.Form):
         # File size
         max_size = 2.5 * 1024 * 1024 * 1024  # 2.5 GB in bytes
         if file.size > max_size:
-            logging.error("File size exceeds 2.5 GB limit.")
+            logger.error("File size exceeds 2.5 GB limit.")
             raise forms.ValidationError("File size exceeds 2.5 GB limit.")
 
         # File type validation
@@ -61,7 +58,7 @@ class UploadFileForm(forms.Form):
 
         ext = file.name.split(".")[-1].lower()
         if ext not in allowed_exts:
-            logging.error(
+            logger.error(
                 f"Invalid file extension: {ext}. Allowed: {allowed_exts}"
             )
             raise forms.ValidationError(
@@ -72,7 +69,7 @@ class UploadFileForm(forms.Form):
         file.seek(0)  # Reset file pointer to the beginning after reading
 
         if mime_type not in allowed_mime_types:
-            logging.error(
+            logger.error(
                 f"Invalid MIME type: {mime_type}. Allowed: {allowed_mime_types}"  # noqa 501
             )
             raise forms.ValidationError(
@@ -170,4 +167,59 @@ class DetectByOriginForm(forms.Form):
         empty_label="— select OCR config —",
         required=True,
         help_text="Select the OCR configuration to use for detection",
+    )
+
+    only_without_detections = forms.BooleanField(
+        required=False,
+        initial=True,
+        help_text="Only detect documents without existing detections",
+    )
+
+
+class ProcessDetectionsFormByUnprocessed(forms.Form):
+    """
+    Form for processing detections by unprocessed documents.
+    This form allows users to select a vessel and a specific OCR config
+    to process detections for documents that have not been processed yet.
+
+    The processed detections will be turned into tags and saved.
+    """
+
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
+        help_text="Select the vessel associated with the documents to process",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Get distinct department_origin values from the Document model
+        # and format them for the ChoiceField.
+        distinct_origins = (
+            Document.objects.filter(department_origin__isnull=False)
+            .values_list("department_origin", flat=True)
+            .distinct()
+            .order_by("department_origin")
+        )
+        origin_choices = [("", "— select department origin —")] + [
+            (origin, origin) for origin in distinct_origins
+        ]
+        self.fields["origin"].choices = origin_choices
+
+    origin = forms.ChoiceField(
+        choices=[],
+        required=False,
+        help_text="Select the department origin of the documents to process",
+    )
+    config = forms.ModelChoiceField(
+        queryset=OCRConfig.objects.all(),
+        empty_label="— select OCR config —",
+        required=True,
+        help_text="Select the OCR configuration to use for processing",
+    )
+    only_without_tags = forms.BooleanField(
+        required=False,
+        initial=True,
+        help_text="Only process documents without existing tags",
     )

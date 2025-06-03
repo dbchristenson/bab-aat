@@ -54,11 +54,15 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link"
-                            href="{% url 'admin:index' %}">Admin</a>
+                            href="/ocr/documents/detect/by_origin">Detect</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/ocr/documents/export">Export
+                        </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link"
-                            href="/ocr/documents/detect/by_origin">Detect</a>
+                            href="{% url 'admin:index' %}">Admin</a>
                     </li>
                     {% endblock %}
                 </ul>

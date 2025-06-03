@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # 1) System Packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     libmagic1 \
     libmagic-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

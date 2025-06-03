@@ -18,6 +18,10 @@ services:
       - ".env"
     volumes:
       - ./resources/media:/app/resources/media
+    deploy:
+      resources:
+        limits:
+          memory: 2G
 
   worker:
     build:
@@ -29,8 +33,14 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
     command: >
-      uv run celery -A babaatsite worker --pool prefork --concurrency 12 --loglevel info
+      uv run celery -A babaatsite worker --pool prefork --concurrency 8 --loglevel info
     env_file:
       - ".env"
     volumes:
       - ./resources/media:/app/resources/media
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 2G

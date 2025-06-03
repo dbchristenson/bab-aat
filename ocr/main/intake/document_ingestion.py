@@ -1,14 +1,10 @@
 import datetime as dt
-import logging
 
 from django.core.files import File
 from django.db.models import Q
+from loguru import logger
 
-from ocr.main.utils.loggers import basic_logging
 from ocr.models import Document
-
-# Setup logging
-basic_logging("pdf_img_pipeline")
 
 
 def save_document(file: File, vessel_id: int) -> int | None:
@@ -45,7 +41,28 @@ def save_document(file: File, vessel_id: int) -> int | None:
     file_size = file.size
     last_modified = dt.datetime.now()  # Using current time as last_modified
     document_number = file_name.split(".")[0].strip()
-    department_origin = document_number.split("-")[1].strip().upper()
+
+    # if there is still white space within document_number, then it is abnormal
+    # and we should get the 0th element of a split on whitespace
+    if " " in document_number:
+        document_number = document_number.split()[0].strip()
+        logger.warning(
+            f"Document number '{document_number}' had whitespace; "
+            "using first element after split."
+        )
+        logger.debug(
+            f"Document number after whitespace split: {document_number}"
+        )
+    try:
+        department_origin = document_number.split("-")[1].strip().upper()
+    except IndexError as e:
+        logger.warning("department_origin operation failed")
+        logger.warning(f"Error: {e}")
+        logger.warning(f"File name: {file_name}")
+        logger.warning(f"Document number: {document_number}")
+        logger.warning(
+            f"department_origin split: {document_number.split('-')}"
+        )
 
     if "_" in document_number:
         document_number = document_number.split("_")[0]
@@ -61,11 +78,11 @@ def save_document(file: File, vessel_id: int) -> int | None:
         modified_change = existing_doc.last_modified != last_modified
         if size_change or modified_change:
             existing_doc.delete()
-            logging.info(
+            logger.info(
                 f"Document '{file_name}' has changed (size or modification time); deleting existing record."  # noqa 501
             )
         else:
-            logging.info(
+            logger.info(
                 f"Document '{file_name}' already exists with identical metadata; skipping save."  # noqa 501
             )
             return
@@ -81,6 +98,6 @@ def save_document(file: File, vessel_id: int) -> int | None:
         last_modified=last_modified,
     )
     new_document.save()
-    logging.info(f"Document '{file_name}' added to the database.")
+    logger.info(f"Document '{file_name}' added to the database.")
 
     return new_document.id
