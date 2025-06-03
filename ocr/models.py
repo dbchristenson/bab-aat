@@ -116,32 +116,6 @@ class OCRConfig(models.Model):
         return self.name
 
 
-class Detection(models.Model):
-    """
-    A detection is a recognized text block on a page.
-
-    Params:
-        page (Page): The page on which the detection was made.
-        text (str): The recognized text.
-        bbox (list): The bounding box coordinates of the detected text.
-        confidence (float): The confidence score of the detection.
-        experiment (str): The name of the experiment or model used.
-        created_at (datetime): The date when the detection was created.
-    """
-
-    page = models.ForeignKey(
-        Page, related_name="detections", on_delete=models.CASCADE
-    )
-    text = models.CharField(max_length=255)
-    bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-    confidence = models.FloatField()
-    config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
-
-
 class Tag(models.Model):
     """
     A tag can be made up of one or more detections. Tags are complete text
@@ -178,11 +152,6 @@ class Tag(models.Model):
         null=True,
         help_text="e.g. 'circle_hough', 'dbscan', 'proximity_merge'",
     )
-    detections = models.ManyToManyField(
-        Detection,
-        related_name="tags",
-        help_text="Raw OCR lines used to build this tag",
-    )
     confidence = models.FloatField(
         null=True,
         help_text="Minimum confidence of the detections used in this tag",
@@ -191,6 +160,35 @@ class Tag(models.Model):
 
     def __str__(self):
         return f"{self.document.name} - {self.text}"
+
+
+class Detection(models.Model):
+    """
+    A detection is a recognized text block on a page.
+
+    Params:
+        page (Page): The page on which the detection was made.
+        text (str): The recognized text.
+        bbox (list): The bounding box coordinates of the detected text.
+        confidence (float): The confidence score of the detection.
+        experiment (str): The name of the experiment or model used.
+        created_at (datetime): The date when the detection was created.
+    """
+
+    page = models.ForeignKey(
+        Page, related_name="detections", on_delete=models.CASCADE
+    )
+    text = models.CharField(max_length=255)
+    bbox = models.JSONField()  # [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+    confidence = models.FloatField()
+    config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    tag = models.ForeignKey(
+        Tag, related_name="detections", on_delete=models.CASCADE, null=True
+    )
+
+    def __str__(self):
+        return f"{self.page.document.name} - Page {self.page.page_number} - {self.text}"  # noqa E501
 
 
 class Truth(models.Model):

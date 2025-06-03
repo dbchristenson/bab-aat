@@ -1,6 +1,9 @@
 from loguru import logger
 
-from ocr.models import Detection, Document, Tag
+from ocr.main.inference.postprocessing.pipeline_steps import (
+    merge_touching_detections,
+)
+from ocr.models import Detection, Tag
 
 
 def _handle_no_detections():
@@ -10,6 +13,23 @@ def _handle_no_detections():
     logger.info("No detections found. Skipping postprocessing.")
 
     return None
+
+
+def _save_tags(tag_data: list[tuple[Tag, list[Detection]]]):
+    """
+    Save the tags to the database.
+    """
+    if not tag_data:
+        logger.info("No tags to save.")
+        return
+
+    for tag, detections in tag_data:
+        tag.save()
+        for detection in detections:
+            detection.tag = tag
+            detection.save()
+            logger.debug(f"Linked detection {detection.id} to tag {tag.id}")
+        logger.info(f"Saved tag: {tag.text} for document {tag.document.name}")
 
 
 def run_postprocessing_pipeline(document_id: int):
@@ -24,7 +44,6 @@ def run_postprocessing_pipeline(document_id: int):
     if not detections.exists():
         return _handle_no_detections()
 
-    # Placeholder for actual postprocessing logic
-    # TODO: Implement postprocessing algorithms here
+    merged_tags = merge_touching_detections(detections)
 
-    return None
+    return _save_tags(merged_tags)
