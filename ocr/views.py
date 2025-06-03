@@ -17,7 +17,7 @@ from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
-from ocr.models import Detection, Document, OCRConfig, Page, Vessel
+from ocr.models import Detection, Document, OCRConfig, Page, Tag, Vessel
 from ocr.tasks import draw_ocr_results as draw_ocr_results_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
@@ -280,6 +280,10 @@ def document_detail(request, document_id):
     if selected_config:
         for p in pages:
             dets = Detection.objects.filter(page=p, config=selected_config)
+            tags = Tag.objects.filter(
+                document__pages__page_number=p.page_number,
+                detections__config=selected_config,
+            )
             if dets.exists():
                 annotated_image_url = p.get_annotated_image_url(
                     config_id=selected_config.id
@@ -293,6 +297,7 @@ def document_detail(request, document_id):
                     {
                         "page": p,
                         "detections": dets,
+                        "tags": tags,
                         "annotated_img_url": annotated_image_url,
                     }
                 )
