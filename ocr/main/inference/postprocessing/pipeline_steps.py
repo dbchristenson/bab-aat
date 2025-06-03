@@ -1,5 +1,8 @@
 from collections import defaultdict, deque
 
+from loguru import logger
+from spellchecker import SpellChecker
+
 from ocr.models import Tag
 
 
@@ -114,7 +117,7 @@ def merge_touching_detections(detections: list) -> list[tuple]:
         detections (list): List of Detection objects to be merged.
 
     Returns:
-        list: List of merged Detection objects.
+        list[tuple]: List of new tag objects with detection composition data.
     """
     if not detections:
         return []
@@ -142,3 +145,178 @@ def merge_touching_detections(detections: list) -> list[tuple]:
         tag_data_with_detections.extend(tags_for_page)
 
     return tag_data_with_detections
+
+
+def remove_single_character_detections(
+    tag_det_data: list[tuple],
+) -> list[tuple]:
+    """
+    Remove tags that consist of a single character
+    """
+    logger.info("Removing single character tags from the merged tag data.")
+
+    new_data = []
+
+    for tag, det in tag_det_data:
+        if len(tag.text) == 1:
+            # Log the removal of single character tags
+            logger.info(
+                f"Removing tag: {tag.text} on page {tag.page_number} \\"
+                "Reason: Single character tag"
+            )
+            continue
+        else:
+            new_data.append((tag, det))
+
+    return new_data
+
+
+def remove_numeric_only_tags(
+    tag_det_data: list[tuple],
+) -> list[tuple]:
+    """
+    Remove tags that consist of numeric characters only.
+    """
+    logger.info("Removing numeric-only tags from the merged tag data.")
+
+    new_data = []
+
+    for tag, det in tag_det_data:
+        if tag.text.isdigit():
+            # Log the removal of numeric-only tags
+            logger.info(
+                f"Removing numeric-only tag: {tag.text} on page {tag.page_number} \\"  # noqa: E501
+                "Reason: Numeric-only tag"
+            )
+            continue
+        else:
+            new_data.append((tag, det))
+
+    return new_data
+
+
+def _correct_text_if_needed(
+    text_to_check: str, spell_checker: SpellChecker, min_candidate_prob: float
+) -> tuple[str, bool]:
+    """
+    Spell checks and corrects a single text string based on conditions.
+
+    Args:
+        text_to_check (str): The text string to spell check.
+        spell_checker (SpellChecker): An instance of the SpellChecker.
+        min_candidate_prob (float): Minimum prob threshold for correction.
+
+    Returns:
+        tuple[str, bool]: The corrected text and a boolean indicating
+                          if any correction was made.
+    """
+    words = text_to_check.split()
+    corrected_word_list = []
+    text_was_changed = False
+    min_word_len_for_correction = 3  # Avoid correcting very short words
+
+    for current_word in words:
+        # Only attempt to correct words containing letters and of min length
+        if (
+            not any(c.isalpha() for c in current_word)
+            or len(current_word) < min_word_len_for_correction
+        ):
+            corrected_word_list.append(current_word)
+            continue
+
+        # spell.correction() returns original word if correct or unknown
+        best_candidate = spell_checker.correction(current_word)
+
+        if best_candidate is None:  # Should be rare for non-empty words
+            best_candidate = current_word  # Fallback to original
+
+        if best_candidate != current_word:
+            candidate_prob = spell_checker.word_probability(best_candidate)
+
+            if candidate_prob >= min_candidate_prob:
+                logger.debug(
+                    f"Corrected '{current_word}' to '{best_candidate}' "
+                    f"with probability {candidate_prob:.2f}."
+                )
+                corrected_word_list.append(best_candidate)
+                text_was_changed = True
+            else:
+                logger.debug(
+                    f"Skipped correction for '{current_word}' "
+                    f"to '{best_candidate}' due to low probability "
+                    f"{candidate_prob:.2f}."
+                )
+                corrected_word_list.append(current_word)
+        else:
+            corrected_word_list.append(current_word)
+
+    if not text_was_changed:
+        # Return original text instance if no effective changes
+        return text_to_check, False
+
+    return " ".join(corrected_word_list), True
+
+
+def spell_check_tags(
+    tag_det_data: list[tuple], minimum_confidence: float = 0.7
+) -> list[tuple]:
+    """
+    Spell check the tags and return corrected tags.
+
+    Some strings in tags may be misspelled and need correction. The tags which
+    this operation are relevant for are specific:
+    - Tags must contain alphabetic characters.
+    - Tags must not have a hyphen in them.
+
+    The minimum confidence threshold is used to determine if we should use
+    the results of the spell checker. If the spell checker is unable to
+    provide a correction with a confidence above this threshold, the tag
+    will not be modified.
+
+    Args:
+        tag_det_data (list[tuple]): List of tuples containing Tag objects and
+                                    their associated detections.
+        minimum_confidence (float): Minimum confidence threshold for spell
+                                    checking.
+
+    Returns:
+        list[tuple]: List of corrected tuples.
+    """
+    logger.info("Spell checking tags.")
+    spell = SpellChecker()
+
+    new_data = []
+
+    for tag, det in tag_det_data:
+        original_text = tag.text
+
+        if "-" in original_text or not any(c.isalpha() for c in original_text):
+            new_data.append((tag, det))
+            continue
+        else:
+            corrected_text, text_was_changed = _correct_text_if_needed(
+                original_text, spell, minimum_confidence
+            )
+
+            if text_was_changed:
+                # Only update tag if the text was actually changed
+                tag.text = corrected_text
+                tag.confidence = min(tag.confidence, minimum_confidence)
+                tag.resolve_is_equipment_tag()
+                logger.info(
+                    f"Corrected tag text from '{original_text}' to "
+                    f"'{corrected_text}' on page {tag.page_number}."
+                )
+            else:
+                logger.debug(
+                    f"No correction needed for tag text: '{original_text}' "
+                    f"on page {tag.page_number}."
+                )
+
+            new_data.append((tag, det))
+
+    if not new_data:
+        logger.info("No tags to spell check or all tags were skipped.")
+        return tag_det_data
+
+    return new_data

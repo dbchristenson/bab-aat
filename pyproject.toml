@@ -27,6 +27,7 @@ dependencies = [
     "pympler>=1.1",
     "pymupdf>=1.26.0",
     "pypdfium2>=4.30.1",
+    "pyspellchecker>=0.8.3",
     "python-magic >= 0.4.27; sys_platform != 'win32'",
     "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "seaborn>=0.13.2",

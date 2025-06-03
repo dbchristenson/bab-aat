@@ -189,6 +189,7 @@ dependencies = [
     { name = "pympler" },
     { name = "pymupdf" },
     { name = "pypdfium2" },
+    { name = "pyspellchecker" },
     { name = "python-magic", marker = "sys_platform != 'win32'" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'" },
     { name = "seaborn" },
@@ -222,6 +223,7 @@ requires-dist = [
     { name = "pympler", specifier = ">=1.1" },
     { name = "pymupdf", specifier = ">=1.26.0" },
     { name = "pypdfium2", specifier = ">=4.30.1" },
+    { name = "pyspellchecker", specifier = ">=0.8.3" },
     { name = "python-magic", marker = "sys_platform != 'win32'", specifier = ">=0.4.27" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'", specifier = ">=0.4.14" },
     { name = "seaborn", specifier = ">=0.13.2" },
@@ -2383,6 +2385,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/43/38/f9e77cf55ba5546a39fa659404b78b97de2ca344848271e7731efb0954cd/pypdfium2-4.30.1-py3-none-win32.whl", hash = "sha256:421f1cf205e213e07c1f2934905779547f4f4a2ff2f59dde29da3d511d3fc806", size = 2834989, upload_time = "2024-12-19T19:28:04.657Z" },
     { url = "https://files.pythonhosted.org/packages/a4/f3/8d3a350efb4286b5ebdabcf6736f51d8e3b10dbe68804c6930b00f5cf329/pypdfium2-4.30.1-py3-none-win_amd64.whl", hash = "sha256:598a7f20264ab5113853cba6d86c4566e4356cad037d7d1f849c8c9021007e05", size = 2960157, upload_time = "2024-12-19T19:28:07.772Z" },
     { url = "https://files.pythonhosted.org/packages/e1/6b/2706497c86e8d69fb76afe5ea857fe1794621aa0f3b1d863feb953fe0f22/pypdfium2-4.30.1-py3-none-win_arm64.whl", hash = "sha256:c2b6d63f6d425d9416c08d2511822b54b8e3ac38e639fc41164b1d75584b3a8c", size = 2814810, upload_time = "2024-12-19T19:28:09.857Z" },
+]
+
+[[package]]
+name = "pyspellchecker"
+version = "0.8.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/f9/8a329c7bea910204aeb78a879141a9cf6b4252098c87974f54b26985959e/pyspellchecker-0.8.3.tar.gz", hash = "sha256:cb06eeafe124837f321e0d02f8e21deab713e966e28e0360319a28a089c43978", size = 7238621, upload_time = "2025-05-19T00:53:23.747Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/94/95/f0ee873c7ff455f2ef16a58320954ed6c6f8d30d59c8c781154deb398bd8/pyspellchecker-0.8.3-py3-none-any.whl", hash = "sha256:e993076e98b0da5a99b7cc31085c3022c77a9dc37c5e95f5cf6304b5dbb8b9d2", size = 7236810, upload_time = "2025-05-19T00:53:21.785Z" },
 ]
 
 [[package]]

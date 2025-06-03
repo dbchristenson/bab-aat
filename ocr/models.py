@@ -157,9 +157,30 @@ class Tag(models.Model):
         help_text="Minimum confidence of the detections used in this tag",
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    equipment_tag = models.BooleanField(default=False, null=True)
 
     def __str__(self):
         return f"{self.document.name} - {self.text}"
+
+    def resolve_is_equipment_tag(self):
+        """
+        Check Tag text to determine if it is an equipment tag.
+        If it is an equipment tag, set the equipment_tag field to True.
+
+        A Tag is an equipment tag if it contains at least one letter,
+        at least one number, and at least one hyphen.
+        """
+        import re
+
+        if (
+            re.search(r"[A-Za-z]", self.text)
+            and re.search(r"\d", self.text)
+            and re.search(r"-", self.text)
+        ):
+            self.equipment_tag = True
+        else:
+            self.equipment_tag = False
+        self.save(update_fields=["equipment_tag"])
 
 
 class Detection(models.Model):

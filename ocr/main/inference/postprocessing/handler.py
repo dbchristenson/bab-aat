@@ -2,6 +2,8 @@ from loguru import logger
 
 from ocr.main.inference.postprocessing.pipeline_steps import (
     merge_touching_detections,
+    remove_numeric_only_tags,
+    remove_single_character_detections,
 )
 from ocr.models import Detection, Tag
 
@@ -19,17 +21,27 @@ def _save_tags(tag_data: list[tuple[Tag, list[Detection]]]):
     """
     Save the tags to the database.
     """
+    from django.db import transaction
+
     if not tag_data:
         logger.info("No tags to save.")
         return
 
     for tag, detections in tag_data:
-        tag.save()
-        for detection in detections:
-            detection.tag = tag
-            detection.save()
-            logger.debug(f"Linked detection {detection.id} to tag {tag.id}")
-        logger.info(f"Saved tag: {tag.text} for document {tag.document.name}")
+        try:
+            with transaction.atomic():
+                tag.save()
+                for detection in detections:
+                    detection.tag = tag
+                    detection.save(update_fields=["tag"])
+                    logger.debug(
+                        f"Linked detection {detection.id} to tag {tag.id}"
+                    )
+                logger.info(
+                    f"Saved tag: {tag.text} for document {tag.document.name}"
+                )
+        except Exception as e:
+            logger.error(f"Error saving tag {tag.id}: {e}")
 
 
 def run_postprocessing_pipeline(document_id: int):
@@ -44,6 +56,8 @@ def run_postprocessing_pipeline(document_id: int):
     if not detections.exists():
         return _handle_no_detections()
 
-    merged_tags = merge_touching_detections(detections)
+    tag_det_data = merge_touching_detections(detections)
+    tag_det_data = remove_single_character_detections(tag_det_data)
+    tag_det_data = remove_numeric_only_tags(tag_det_data)
 
-    return _save_tags(merged_tags)
+    return _save_tags(tag_det_data)
