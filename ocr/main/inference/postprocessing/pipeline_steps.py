@@ -176,17 +176,22 @@ def remove_numeric_only_tags(
 ) -> list[tuple]:
     """
     Remove tags that consist of numeric characters only.
+
+    This includes tags that are purely digits and also tags where there
+    are spaces between digits, such as "123 456". Or if there are special
+    characters, punctuation, or symbols, such as "123.456". These symbols
+    might be the degree symbol, percent sign, bracket }, or similar.
     """
     logger.info("Removing numeric-only tags from the merged tag data.")
 
     new_data = []
 
     for tag, det in tag_det_data:
-        if tag.text.isdigit():
-            # Log the removal of numeric-only tags
+        # Check if the tag text contains any alphabetic characters
+        if not any(char.isalpha() for char in tag.text):
             logger.info(
-                f"Removing numeric-only tag: {tag.text} on page {tag.page_number} \\"  # noqa: E501
-                "Reason: Numeric-only tag"
+                f"Removing numeric-only tag: {tag.text} on "
+                f"page {tag.page_number} Reason: Tag lacks alphabetic chars"
             )
             continue
         else:
@@ -196,7 +201,8 @@ def remove_numeric_only_tags(
 
 
 def _correct_text_if_needed(
-    text_to_check: str, spell_checker: SpellChecker, min_candidate_prob: float
+    text_to_check: str,
+    spell_checker: SpellChecker,
 ) -> tuple[str, bool]:
     """
     Spell checks and corrects a single text string based on conditions.
@@ -204,7 +210,6 @@ def _correct_text_if_needed(
     Args:
         text_to_check (str): The text string to spell check.
         spell_checker (SpellChecker): An instance of the SpellChecker.
-        min_candidate_prob (float): Minimum prob threshold for correction.
 
     Returns:
         tuple[str, bool]: The corrected text and a boolean indicating
@@ -231,22 +236,8 @@ def _correct_text_if_needed(
             best_candidate = current_word  # Fallback to original
 
         if best_candidate != current_word:
-            candidate_prob = spell_checker.word_probability(best_candidate)
-
-            if candidate_prob >= min_candidate_prob:
-                logger.debug(
-                    f"Corrected '{current_word}' to '{best_candidate}' "
-                    f"with probability {candidate_prob:.2f}."
-                )
-                corrected_word_list.append(best_candidate)
-                text_was_changed = True
-            else:
-                logger.debug(
-                    f"Skipped correction for '{current_word}' "
-                    f"to '{best_candidate}' due to low probability "
-                    f"{candidate_prob:.2f}."
-                )
-                corrected_word_list.append(current_word)
+            corrected_word_list.append(best_candidate)
+            text_was_changed = True
         else:
             corrected_word_list.append(current_word)
 
@@ -257,9 +248,7 @@ def _correct_text_if_needed(
     return " ".join(corrected_word_list), True
 
 
-def spell_check_tags(
-    tag_det_data: list[tuple], minimum_confidence: float = 0.7
-) -> list[tuple]:
+def spell_check_tags(tag_det_data: list[tuple]) -> list[tuple]:
     """
     Spell check the tags and return corrected tags.
 
@@ -268,16 +257,9 @@ def spell_check_tags(
     - Tags must contain alphabetic characters.
     - Tags must not have a hyphen in them.
 
-    The minimum confidence threshold is used to determine if we should use
-    the results of the spell checker. If the spell checker is unable to
-    provide a correction with a confidence above this threshold, the tag
-    will not be modified.
-
     Args:
         tag_det_data (list[tuple]): List of tuples containing Tag objects and
                                     their associated detections.
-        minimum_confidence (float): Minimum confidence threshold for spell
-                                    checking.
 
     Returns:
         list[tuple]: List of corrected tuples.
@@ -295,14 +277,12 @@ def spell_check_tags(
             continue
         else:
             corrected_text, text_was_changed = _correct_text_if_needed(
-                original_text, spell, minimum_confidence
+                original_text, spell
             )
 
             if text_was_changed:
                 # Only update tag if the text was actually changed
                 tag.text = corrected_text
-                tag.confidence = min(tag.confidence, minimum_confidence)
-                tag.resolve_is_equipment_tag()
                 logger.info(
                     f"Corrected tag text from '{original_text}' to "
                     f"'{corrected_text}' on page {tag.page_number}."
