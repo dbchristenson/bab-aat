@@ -5,7 +5,7 @@ from django.conf import settings
 from loguru import logger
 
 from ocr.main.utils.pdf_utils import get_pdf_object
-from ocr.models import Detection, Page
+from ocr.models import Page, Tag
 
 
 def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
@@ -27,6 +27,7 @@ def _load_pdf_and_rotate(document_id: int) -> list[pymupdf.Page]:
 
 
 def _draw_bboxes_on_page(
+    document_id: int,
     page: pymupdf.Page,
     page_obj: Page,
     config_id: int,
@@ -36,10 +37,10 @@ def _draw_bboxes_on_page(
     Draw bounding boxes for detections on a specific page.
     """
     # Get detections for this page and config
-    detections = Detection.objects.filter(page=page_obj, config_id=config_id)
+    tags = Tag.objects.filter(document_id=document_id)
 
-    if not detections.exists():
-        logger.info(f"No detections found for page {page_obj.page_number}")
+    if not tags.exists():
+        logger.info(f"No tags found for page {page_obj.page_number}")
         return
 
     # Get page dimensions
@@ -54,8 +55,8 @@ def _draw_bboxes_on_page(
     text_render_rotation = page_intrinsic_rotation
     inv_rotation_matrix = ~page.rotation_matrix
 
-    for i, detection in enumerate(detections):
-        bbox_points = detection.bbox
+    for i, tag in enumerate(tags):
+        bbox_points = tag.bbox
 
         polygon_vertices_unrotated_pdf = []
         for p_rot_coords in bbox_points:
@@ -84,7 +85,7 @@ def _draw_bboxes_on_page(
         min_y_for_text = min(y_coords_unrot) if y_coords_unrot else 0
 
         # Add text label above the bbox
-        if detection.text and len(detection.text.strip()) > 0:
+        if tag.text and len(tag.text.strip()) > 0:
             text_y_offset_points = 5
             text_min_y_from_top_points = 5
 
@@ -95,7 +96,7 @@ def _draw_bboxes_on_page(
             # Fontsize 8 is also in PDF points.
             page.insert_text(
                 actual_text_point,
-                f"{i}: {detection.text[:15]}",
+                f"{i}: {tag.text[:15]}",
                 fontsize=8,
                 color=(1, 0, 0),
                 rotate=text_render_rotation,
@@ -135,7 +136,9 @@ def visualize_document_results(document_id: int, config_id: int) -> list[str]:
 
     for pdf_page, django_page in zip(pdf_pages, django_pages):
         # Draw bounding boxes on the page
-        _draw_bboxes_on_page(pdf_page, django_page, config_id, render_scale)
+        _draw_bboxes_on_page(
+            document_id, pdf_page, django_page, config_id, render_scale
+        )
 
         # Convert page to image with the same scale used for drawing
         pix = pdf_page.get_pixmap(

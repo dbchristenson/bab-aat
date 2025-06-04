@@ -221,7 +221,7 @@ class Detection(models.Model):
     config = models.ForeignKey(OCRConfig, on_delete=models.CASCADE, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     tag = models.ForeignKey(
-        Tag, related_name="detections", on_delete=models.CASCADE, null=True
+        Tag, related_name="detections", on_delete=models.SET_NULL, null=True
     )
 
     def __str__(self):

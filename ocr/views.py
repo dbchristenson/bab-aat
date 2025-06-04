@@ -10,15 +10,18 @@ from loguru import logger
 from ocr.forms import (
     DeleteDocumentsFromVesselForm,
     DetectByOriginForm,
+    ExportForm,
     OCRConfigForm,
+    ProcessDetectionsFormByUnprocessed,
     UploadFileForm,
 )
 from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
-from ocr.models import Detection, Document, OCRConfig, Page, Vessel
+from ocr.models import Detection, Document, OCRConfig, Page, Tag, Vessel
 from ocr.tasks import draw_ocr_results as draw_ocr_results_task
+from ocr.tasks import export_tags_from_document as export_excel_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
@@ -254,6 +257,7 @@ def documents(request):
 def document_detail(request, document_id):
     """
     Render the document detail page.
+
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
@@ -279,8 +283,12 @@ def document_detail(request, document_id):
     page_data = []
     if selected_config:
         for p in pages:
-            dets = Detection.objects.filter(page=p, config=selected_config)
-            if dets.exists():
+            tags = Tag.objects.filter(
+                document=document,
+                document__pages__page_number=p.page_number,
+                detections__config=selected_config,
+            )
+            if tags.exists():
                 annotated_image_url = p.get_annotated_image_url(
                     config_id=selected_config.id
                 )
@@ -292,14 +300,13 @@ def document_detail(request, document_id):
                 page_data.append(
                     {
                         "page": p,
-                        "detections": dets,
+                        "tags": tags,
                         "annotated_img_url": annotated_image_url,
                     }
                 )
-
             else:
                 logger.info(
-                    f"No detections found for document {document_id}, "
+                    f"No tags found for document {document_id}, "
                     f"page {p.page_number}, config {selected_config.name}"
                 )
     else:
@@ -307,10 +314,7 @@ def document_detail(request, document_id):
 
     # check if page_detections
     draw_ocr = bool(page_data)
-    logger.info(f"draw_ocr: {draw_ocr}")
-    logger.info(f"page_data: {page_data}")
-    for data in page_data:
-        logger.info(f"{data['annotated_img_url']}")
+    has_tags = all(p["tags"].exists() for p in page_data)
 
     context = {
         "document": document,
@@ -318,6 +322,7 @@ def document_detail(request, document_id):
         "configs": OCRConfig.objects.all(),
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
+        "has_tags": has_tags,
         "vessel": document.vessel.name if document.vessel else None,
     }
 
@@ -525,7 +530,6 @@ def process_detections(request):
     """
     View for processing detections to tags on documents.
     """
-    from ocr.forms import ProcessDetectionsFormByUnprocessed
     from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
     from ocr.tasks import process_detections_to_tags
 
@@ -565,3 +569,91 @@ def process_detections(request):
         "process_detections.html",
         {"form": form, "show_no_documents_modal": show_no_documents_modal},
     )
+
+
+# EXPORT
+# ------------------------------------------------------------------------------
+def export(request):
+    """
+    This view serves the export template.
+    """
+    from ocr.forms import ExportForm
+
+    context = {"form": ExportForm}
+    return render(request, "export.html", context=context)
+
+
+def export_excel(request):
+    """
+    Exports tags for document(s) to an Excel file.
+
+    The structure of the Excel file will be a denormalized table that
+    focuses on relaying information about the tags of the documents.
+    The table will include the following columns:
+        - Document ID
+        - Document Number
+        - Page Number
+        - Tag Text
+        - Location (Bounding Box Coordinates)
+        - Equipment Tag (Prediction for if tag is an equipment tag)
+        - Created At (Timestamp of when the tag was created)
+
+    The goal of the table is to have all relevant tags be the unique rows
+    while the document and page information is repeated for each tag.
+
+    Args:
+        request: The HTTP request object.
+
+    Returns:
+        An HTTP response with the Excel file attachment.
+    """
+    from django.http import JsonResponse
+
+    if request.method == "POST":
+        form = ExportForm(request.POST)
+        if form.is_valid():
+            # Check if its only one document
+            document_data = form.cleaned_data["document"]
+            if document_data:
+                tag_qs = Tag.objects.filter(document=document_data)
+                tags = list(tag_qs.values_list("page_number", flat=True))
+
+                return JsonResponse(tags)
+            # Batch request, make query
+            else:
+                from ocr.main.utils.task_helpers import (
+                    _chunk_and_dispatch_tasks,
+                )
+
+                vessel = form.cleaned_data["vessel"]
+                origin = form.cleaned_data["origin"]
+                config = form.cleaned_data["config"]
+
+                query = Document.objects.filter(vessel=vessel, config=config)
+                if origin:
+                    query = query.filter(department_origin=origin)
+
+                document_ids = list(query.values_list("id", flat=True))
+                tags_qs = Tag.objects.filter(document_ids=document_ids)
+                tags = list(tags_qs.values_list("page_number", flat=True))
+
+                return JsonResponse(tags)
+    pass
+
+
+def export_pdf(request):
+    """
+    Export reconstructed PDF for document(s).
+
+    The goal of this function is to write invisible text to the PDF
+    for each tag related to the document(s). The text will be written
+    in the same location as the tag's bounding box coordinates in an
+    appropriate font size.
+
+    Args:
+        request: The HTTP request object.
+
+    Returns:
+        An HTTP response with the PDF file attachment.
+    """
+    pass
