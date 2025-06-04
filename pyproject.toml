@@ -22,6 +22,7 @@ dependencies = [
     "paddleocr==3.0.0",
     "paddlepaddle==3.0.0",
     "pillow>=11.2.1",
+    "polars>=1.30.0",
     "psutil>=7.0.0",
     "psycopg2-binary>=2.9.10",
     "pympler>=1.1",
