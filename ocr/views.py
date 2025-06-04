@@ -312,10 +312,7 @@ def document_detail(request, document_id):
 
     # check if page_detections
     draw_ocr = bool(page_data)
-    logger.info(f"draw_ocr: {draw_ocr}")
-    logger.info(f"page_data: {page_data}")
-    for data in page_data:
-        logger.info(f"{data['annotated_img_url']}")
+    has_tags = all(p["tags"].exists() for p in page_data)
 
     context = {
         "document": document,
@@ -323,6 +320,7 @@ def document_detail(request, document_id):
         "configs": OCRConfig.objects.all(),
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
+        "has_tags": has_tags,
         "vessel": document.vessel.name if document.vessel else None,
     }
 
@@ -570,3 +568,48 @@ def process_detections(request):
         "process_detections.html",
         {"form": form, "show_no_documents_modal": show_no_documents_modal},
     )
+
+
+# EXPORT
+# ------------------------------------------------------------------------------
+def export_excel(request, document_id: list | int, config_id: int):
+    """
+    Exports tags for document(s) to an Excel file.
+
+    The structure of the Excel file will be a denormalized table that
+    focuses on relaying information about the tags of the documents.
+    The table will include the following columns:
+        - Document ID
+        - Document Number
+        - Page Number
+        - Tag Text
+        - Location (Bounding Box Coordinates)
+        - Equipment Tag (Prediction for if tag is an equipment tag)
+        - Created At (Timestamp of when the tag was created)
+
+    The goal of the table is to have all relevant tags be the unique rows
+    while the document and page information is repeated for each tag.
+
+    Args:
+        request: The HTTP request object.
+        document_id: A list or single integer representing the document ID(s)
+            for which to export tags.
+        config_id: The ID of the OCRConfig to use for filtering tags.
+
+    Returns:
+        An HTTP response with the Excel file attachment.
+    """
+
+    pass
+
+
+def export_pdf(request, document_id: list | int, config_id: int):
+    """
+    Export reconstructed PDF for document(s).
+
+    The goal of this function is to write invisible text to the PDF
+    for each tag related to the document(s). The text will be written
+    in the same location as the tag's bounding box coordinates in an
+    appropriate font size.
+    """
+    pass

@@ -223,3 +223,44 @@ class ProcessDetectionsFormByUnprocessed(forms.Form):
         initial=True,
         help_text="Only process documents without existing tags",
     )
+
+
+class ExportForm(forms.Form):
+    """
+    Form for exporting document(s) data to Excel.
+
+    The structure of the Excel file will be a denormalized table that
+    focuses on relaying information about the tags of the documents.
+    The table will include the following columns:
+        - Document ID
+        - Document Number
+        - Page Number
+        - Tag Text
+        - Location (Bounding Box Coordinates)
+        - Equipment Tag (Prediction for if tag is an equipment tag)
+        - Created At (Timestamp of when the tag was created)
+    """
+
+    document = forms.ModelChoiceField(
+        queryset=Document.objects.all(),
+        empty_label="— select document —",
+        required=False,
+        help_text="Select a document to export, leave blank to query",
+    )
+    vessel = forms.ModelChoiceField(
+        queryset=Vessel.objects.all(),
+        empty_label="— select vessel —",
+        required=True,
+        help_text="Select the vessel associated with the documents to export",
+    )
+    department_origin = forms.ChoiceField(
+        choices=[],
+        required=False,
+        help_text="Select the department origin of the documents to export",
+    )
+    config = forms.ModelChoiceField(
+        queryset=OCRConfig.objects.all(),
+        empty_label="— select OCR config —",
+        required=True,
+        help_text="Select the OCR configuration to filter documents by",
+    )

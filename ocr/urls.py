@@ -46,9 +46,13 @@ urlpatterns = [
         views.trigger_draw_ocr,
         name="trigger_draw_ocr",
     ),
+    # dets -> tags
     path(
         "documents/process_detections/",
         views.process_detections,
         name="process_detections",
     ),
+    # export
+    path("documents/export/excel/", views.export_excel, name="export_excel"),
+    path("documents/export/pdf/", views.export_pdf, name="export_pdf"),
 ]
