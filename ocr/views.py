@@ -257,6 +257,7 @@ def documents(request):
 def document_detail(request, document_id):
     """
     Render the document detail page.
+
     Displays information about a specific document, including its pages and
     associated detections if they have been created.
     """
@@ -282,12 +283,12 @@ def document_detail(request, document_id):
     page_data = []
     if selected_config:
         for p in pages:
-            dets = Detection.objects.filter(page=p, config=selected_config)
             tags = Tag.objects.filter(
+                document=document,
                 document__pages__page_number=p.page_number,
                 detections__config=selected_config,
             )
-            if dets.exists():
+            if tags.exists():
                 annotated_image_url = p.get_annotated_image_url(
                     config_id=selected_config.id
                 )
@@ -299,15 +300,13 @@ def document_detail(request, document_id):
                 page_data.append(
                     {
                         "page": p,
-                        "detections": dets,
                         "tags": tags,
                         "annotated_img_url": annotated_image_url,
                     }
                 )
-
             else:
                 logger.info(
-                    f"No detections found for document {document_id}, "
+                    f"No tags found for document {document_id}, "
                     f"page {p.page_number}, config {selected_config.name}"
                 )
     else:
