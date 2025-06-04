@@ -10,7 +10,9 @@ from loguru import logger
 from ocr.forms import (
     DeleteDocumentsFromVesselForm,
     DetectByOriginForm,
+    ExportForm,
     OCRConfigForm,
+    ProcessDetectionsFormByUnprocessed,
     UploadFileForm,
 )
 from ocr.main.inference.handle_batch_detections import (
@@ -19,6 +21,7 @@ from ocr.main.inference.handle_batch_detections import (
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.models import Detection, Document, OCRConfig, Page, Tag, Vessel
 from ocr.tasks import draw_ocr_results as draw_ocr_results_task
+from ocr.tasks import export_tags_from_document as export_excel_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
@@ -528,7 +531,6 @@ def process_detections(request):
     """
     View for processing detections to tags on documents.
     """
-    from ocr.forms import ProcessDetectionsFormByUnprocessed
     from ocr.main.utils.task_helpers import _chunk_and_dispatch_tasks
     from ocr.tasks import process_detections_to_tags
 
@@ -572,7 +574,17 @@ def process_detections(request):
 
 # EXPORT
 # ------------------------------------------------------------------------------
-def export_excel(request, document_id: list | int, config_id: int):
+def export(request):
+    """
+    This view serves the export template.
+    """
+    from ocr.forms import ExportForm
+
+    context = {"form": ExportForm}
+    return render(request, "export.html", context=context)
+
+
+def export_excel(request):
     """
     Exports tags for document(s) to an Excel file.
 
@@ -592,18 +604,45 @@ def export_excel(request, document_id: list | int, config_id: int):
 
     Args:
         request: The HTTP request object.
-        document_id: A list or single integer representing the document ID(s)
-            for which to export tags.
-        config_id: The ID of the OCRConfig to use for filtering tags.
 
     Returns:
         An HTTP response with the Excel file attachment.
     """
+    from django.http import JsonResponse
 
+    if request.method == "POST":
+        form = ExportForm(request.POST)
+        if form.is_valid():
+            # Check if its only one document
+            document_data = form.cleaned_data["document"]
+            if document_data:
+                tag_qs = Tag.objects.filter(document=document_data)
+                tags = list(tag_qs.values_list("page_number", flat=True))
+
+                return JsonResponse(tags)
+            # Batch request, make query
+            else:
+                from ocr.main.utils.task_helpers import (
+                    _chunk_and_dispatch_tasks,
+                )
+
+                vessel = form.cleaned_data["vessel"]
+                origin = form.cleaned_data["origin"]
+                config = form.cleaned_data["config"]
+
+                query = Document.objects.filter(vessel=vessel, config=config)
+                if origin:
+                    query = query.filter(department_origin=origin)
+
+                document_ids = list(query.values_list("id", flat=True))
+                tags_qs = Tag.objects.filter(document_ids=document_ids)
+                tags = list(tags_qs.values_list("page_number", flat=True))
+
+                return JsonResponse(tags)
     pass
 
 
-def export_pdf(request, document_id: list | int, config_id: int):
+def export_pdf(request):
     """
     Export reconstructed PDF for document(s).
 
@@ -611,5 +650,11 @@ def export_pdf(request, document_id: list | int, config_id: int):
     for each tag related to the document(s). The text will be written
     in the same location as the tag's bounding box coordinates in an
     appropriate font size.
+
+    Args:
+        request: The HTTP request object.
+
+    Returns:
+        An HTTP response with the PDF file attachment.
     """
     pass

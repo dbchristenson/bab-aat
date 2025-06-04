@@ -264,3 +264,9 @@ class ExportForm(forms.Form):
         required=True,
         help_text="Select the OCR configuration to filter documents by",
     )
+    export_type = forms.ChoiceField(
+        choices=["excel", "pdf"],
+        initial="excel",
+        required=True,
+        help_text="Select the type of file to export to",
+    )
