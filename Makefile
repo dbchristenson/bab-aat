@@ -1,17 +1,17 @@
-.PHONY: run install clean check runner
+.PHONY: run install clean check runner update
 .DEFAULT_GOAL:=runner
 
 run: install
-	uv run python manage.py runserver
+	docker compose up --build
+
+update:
+	git pull
 
 install: pyproject.toml
 	uv sync
 
 clean:
 	rm -rf `find . -type d -name __pycache__`
-	rm -rf .ruff_cache
+	rm -rf .DS_store
 
-check:
-	uv run flake8 .
-
-runner: check run clean
+runner: update install clean run
