@@ -212,6 +212,7 @@ class ProcessDetectionsFormByUnprocessed(forms.Form):
         required=False,
         help_text="Select the department origin of the documents to process",
     )
+
     config = forms.ModelChoiceField(
         queryset=OCRConfig.objects.all(),
         empty_label="— Select OCR Config —",

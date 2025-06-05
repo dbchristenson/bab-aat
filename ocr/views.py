@@ -26,7 +26,6 @@ from ocr.main.inference.handle_batch_detections import (
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.models import Detection, Document, OCRConfig, Page, Tag, Vessel
 from ocr.tasks import draw_ocr_results as draw_ocr_results_task
-from ocr.tasks import export_tags_from_document as export_excel_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
@@ -591,9 +590,9 @@ def export(request):
         if form.is_valid():
             logger.info("Export form is valid.")
             export_type = form.cleaned_data["export_type"]
-            if export_type == "excel":
+            if export_type == "EXCEL":
                 return export_excel(request)
-            elif export_type == "pdf":
+            elif export_type == "PDF":
                 return export_pdf(request)
             else:
                 logger.error("Unknown export type.")
@@ -646,15 +645,11 @@ def export_excel(request):
                 excel_file_name = f"{document_data.document_number}_tags.xlsx"
             # Batch request, make query
             else:
-                from ocr.main.utils.task_helpers import (
-                    _chunk_and_dispatch_tasks,
-                )
-
                 vessel = form.cleaned_data["vessel"]
-                origin = form.cleaned_data["origin"]
+                origin = form.cleaned_data["department_origin"]
                 config = form.cleaned_data["config"]
 
-                query = Document.objects.filter(vessel=vessel, config=config)
+                query = Document.objects.filter(vessel=vessel)
                 if origin:
                     query = query.filter(department_origin=origin)
 
@@ -665,9 +660,11 @@ def export_excel(request):
                         None, "No documents found for the selected criteria."
                     )
                     return render(request, "export.html", {"form": form})
-                tags_qs = Tag.objects.filter(document_ids=document_ids)
+                tags_qs = Tag.objects.filter(
+                    document_id__in=document_ids, detections__config=config
+                )
                 tags = list(tags_qs.values_list(*FIELDS_TO_EXPORT))
-                excel_file_name = f"{vessel.name}_{origin}_tags.xlsx"
+                excel_file_name = f"{vessel.name if vessel else "all_vessels"}_{origin if origin else "all_origins"}_tags.xlsx"  # noqa E501
 
             # Construct Excel file
             data_obj = {"tags": tags}

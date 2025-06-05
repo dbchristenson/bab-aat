@@ -23,6 +23,32 @@ _EXCEL_COLUMN_NAMES_MAP = {
 }
 
 
+def _format_bbox_to_string(polygon_coords: list) -> str:
+    """
+    Converts a list of coordinate pairs (polygon) to a string.
+    Example: [[x1,y1],[x2,y2],[x3,y3]] -> "x1,y1;x2,y2;x3,y3"
+    Handles None or non-list inputs gracefully.
+    """
+    if not isinstance(polygon_coords, list):
+        return str(polygon_coords) if polygon_coords is not None else ""
+
+    if not polygon_coords:  # Handles empty list
+        return ""
+
+    # Check if it's a list of lists (pairs of coordinates)
+    if not all(
+        isinstance(pair, list) and len(pair) == 2 for pair in polygon_coords
+    ):
+        # Fallback for unexpected format within the list,
+        # though ideally the data structure is consistent.
+        # This will convert simple lists like [1,2,3,4] to "1,2,3,4"
+        # or just stringify if elements are not numbers.
+        return ",".join(map(str, polygon_coords))
+
+    # Format: "x1,y1;x2,y2;..."
+    return ";".join([f"{coord[0]},{coord[1]}" for coord in polygon_coords])
+
+
 def export_document_tags_to_excel(data_object: dict) -> bytes:
     """Exports tags for document(s) to an in-memory Excel file.
 
@@ -45,7 +71,25 @@ def export_document_tags_to_excel(data_object: dict) -> bytes:
     df = pl.DataFrame(data=tags_data, schema=FIELDS_TO_EXPORT, strict=False)
 
     if "bbox" in df.columns:
-        df = df.with_columns(pl.col("bbox").cast(pl.String))
+        df = df.with_columns(
+            pl.col("bbox")
+            .map_elements(_format_bbox_to_string, return_dtype=pl.String)
+            .alias("bbox")
+        )
+
+    if "created_at" in df.columns:
+        # Check if the column is of a datetime type and has timezone info
+        if df["created_at"].dtype in [
+            pl.Datetime,
+            pl.Datetime("us"),
+            pl.Datetime("ns"),
+            pl.Datetime("ms"),
+        ]:
+            df = df.with_columns(
+                pl.col("created_at")
+                .dt.replace_time_zone(None)
+                .alias("created_at")
+            )
 
     df = df.rename(_EXCEL_COLUMN_NAMES_MAP)
 
