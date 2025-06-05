@@ -105,13 +105,13 @@
         <div class="col-md-3"> <!--EXPORT EXCEL-->
             {% if has_tags %}
             <form method="POST" 
-                action="{% url 'ocr:export_excel'%}"
+                action="{% url 'ocr:export_excel' %}"
                 class="d-inline">
                 {% csrf_token %}
-                <input type="hidden" name="config" value="{{ selected_config }}">
-                <input type="hidden" name="document" value="{{ document }}">
-                <input type="hidden" name="vessel" value="{{ vessel }}">
-                <input type="hidden" name="export_type" value="excel">
+                <input type="hidden" name="config" value="{{ selected_config.id }}">
+                <input type="hidden" name="document" value="{{ document.id }}">
+                <input type="hidden" name="vessel" value="{{ vessel.id }}">
+                <input type="hidden" name="export_type" value="EXCEL">
                 <button type="submit" class="btn btn-primary w-100">
                     Export Excel
                 </button>
@@ -125,13 +125,13 @@
         <div class="col-md-3"> <!--EXPORT PDF-->
             {% if has_tags %}
             <form method="POST" 
-                action="{% url 'ocr:export_pdf'%}" 
+                action="{% url 'ocr:export_pdf' %}" 
                 class="d-inline">
                 {% csrf_token %}
-                <input type="hidden" name="config_id" 
-                    value="{{ selected_config.id}}">
-                <input type="hidden" name="document_id" value="{{ document.id }}">
-                <input type="hidden" name="export_type" value="pdf">
+                <input type="hidden" name="config" value="{{ selected_config.id}}">
+                <input type="hidden" name="document" value="{{ document.id }}">
+                <input type="hidden" name="vessel" value="{{ vessel }}">
+                <input type="hidden" name="export_type" value="PDF">
                 <button type="submit" class="btn btn-primary w-100">
                     Export PDF
                 </button>
