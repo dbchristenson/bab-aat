@@ -3,6 +3,7 @@ from pathlib import Path
 import markdown
 from django.conf import settings
 from django.core.paginator import Paginator
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from loguru import logger
@@ -14,6 +15,10 @@ from ocr.forms import (
     OCRConfigForm,
     ProcessDetectionsFormByUnprocessed,
     UploadFileForm,
+)
+from ocr.main.export.excel import (
+    FIELDS_TO_EXPORT,
+    export_document_tags_to_excel,
 )
 from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
@@ -628,32 +633,17 @@ def export_excel(request):
     Returns:
         An HTTP response with the Excel file attachment.
     """
-    from django.http import JsonResponse
-
     if request.method == "POST":
         logger.info("POST")
         form = ExportForm(request.POST)
         if form.is_valid():
-            logger.info("FORM IS VALID")
             # Check if its only one document
-            document_data = form.cleaned_data["document"]
+            document_data: Document = form.cleaned_data["document"]
             if document_data:
-                logger.info("DOCUMENT_DATA -> ONLY ONE DOCUMENT")
+                origin = document_data.department_origin
                 tag_qs = Tag.objects.filter(document=document_data)
-                fields_to_export = [
-                    "document__id",
-                    "document__document_number",
-                    "page_number",
-                    "text",
-                    "bbox",
-                    "equipment_tag",
-                    "created_at",
-                ]
-                tags = list(tag_qs.values_list(*fields_to_export))
-                logger.info(f"TAG_QS -> {tag_qs}")
-                logger.info(f"TAGS -> {tags}")
-
-                return JsonResponse({"tags": tags})
+                tags = list(tag_qs.values_list(*FIELDS_TO_EXPORT))
+                excel_file_name = f"{document_data.document_number}_tags.xlsx"
             # Batch request, make query
             else:
                 from ocr.main.utils.task_helpers import (
@@ -669,10 +659,44 @@ def export_excel(request):
                     query = query.filter(department_origin=origin)
 
                 document_ids = list(query.values_list("id", flat=True))
+                if not document_ids:
+                    logger.warning("No documents found for export.")
+                    form.add_error(
+                        None, "No documents found for the selected criteria."
+                    )
+                    return render(request, "export.html", {"form": form})
                 tags_qs = Tag.objects.filter(document_ids=document_ids)
-                tags = list(tags_qs.values_list("page_number", flat=True))
+                tags = list(tags_qs.values_list(*FIELDS_TO_EXPORT))
+                excel_file_name = f"{vessel.name}_{origin}_tags.xlsx"
 
-                return JsonResponse(tags)
+            # Construct Excel file
+            data_obj = {"tags": tags}
+
+            try:
+                excel_bytes = export_document_tags_to_excel(
+                    data_object=data_obj
+                )
+
+                response = HttpResponse(
+                    excel_bytes,
+                    content_type=(
+                        "application/"
+                        "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    ),
+                )
+                response["Content-Disposition"] = (
+                    f'attachment; filename="{excel_file_name}"'
+                )
+                return response
+
+            except Exception as e:
+                logger.error(
+                    f"Error generating Excel file: {e}", exc_info=True
+                )
+                form.add_error(None, f"Error generating Excel file: {e}")
+                return render(
+                    request, "export.html", {"form": form, "error": str(e)}
+                )
         else:
             logger.error("Form is invalid")
             logger.error(f"Form errors: {form.errors}")
