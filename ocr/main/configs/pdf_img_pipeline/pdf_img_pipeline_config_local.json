@@ -1,9 +1,0 @@
-{
-    "pdf_dir": "C:\\Users\\User\\src\\marine-process-docs",
-    "output_dir": "resources/marine-process-imgs",
-    "scale": 4,
-    "absolute_path": true,
-    "max_depth": 10,
-    "min_file_size_kb": 0,
-    "max_file_size_kb": 20480
-}

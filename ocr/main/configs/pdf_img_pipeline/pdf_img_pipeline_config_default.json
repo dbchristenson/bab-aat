@@ -1,9 +1,0 @@
-{
-    "pdf_dir": "",
-    "output_dir": "",
-    "scale": 4,
-    "absolute_path": false,
-    "max_depth": 10,
-    "min_file_size_kb": 0,
-    "max_file_size_kb": 20480
-}
