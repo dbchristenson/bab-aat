@@ -3,6 +3,7 @@ from pathlib import Path
 import markdown
 from django.conf import settings
 from django.core.paginator import Paginator
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from loguru import logger
@@ -15,13 +16,16 @@ from ocr.forms import (
     ProcessDetectionsFormByUnprocessed,
     UploadFileForm,
 )
+from ocr.main.export.excel import (
+    FIELDS_TO_EXPORT,
+    export_document_tags_to_excel,
+)
 from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
 from ocr.main.intake.handle_upload import handle_uploaded_file
 from ocr.models import Detection, Document, OCRConfig, Page, Tag, Vessel
 from ocr.tasks import draw_ocr_results as draw_ocr_results_task
-from ocr.tasks import export_tags_from_document as export_excel_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
@@ -323,7 +327,8 @@ def document_detail(request, document_id):
         "selected_config": selected_config,
         "draw_ocr": draw_ocr,
         "has_tags": has_tags,
-        "vessel": document.vessel.name if document.vessel else None,
+        "vessel_name": document.vessel.name if document.vessel else None,
+        "vessel": document.vessel,
     }
 
     return render(request, "document_detail.html", context)
@@ -579,8 +584,28 @@ def export(request):
     """
     from ocr.forms import ExportForm
 
-    context = {"form": ExportForm}
-    return render(request, "export.html", context=context)
+    if request.method == "POST":
+        logger.info("POST request received for export.")
+        form = ExportForm(request.POST)
+        if form.is_valid():
+            logger.info("Export form is valid.")
+            export_type = form.cleaned_data["export_type"]
+            if export_type == "EXCEL":
+                return export_excel(request)
+            elif export_type == "PDF":
+                return export_pdf(request)
+            else:
+                logger.error("Unknown export type.")
+                return render(request, "export.html", {"form": form})
+        else:
+            logger.error("Export form is invalid.")
+            logger.error(f"Form errors: {form.errors}")
+            return render(request, "export.html", {"form": form})
+    else:
+        logger.info("GET request received for export.")
+        form = ExportForm()
+        context = {"form": form}
+        return render(request, "export.html", context=context)
 
 
 def export_excel(request):
@@ -607,38 +632,78 @@ def export_excel(request):
     Returns:
         An HTTP response with the Excel file attachment.
     """
-    from django.http import JsonResponse
-
     if request.method == "POST":
+        logger.info("POST")
         form = ExportForm(request.POST)
         if form.is_valid():
             # Check if its only one document
-            document_data = form.cleaned_data["document"]
+            document_data: Document = form.cleaned_data["document"]
             if document_data:
+                origin = document_data.department_origin
                 tag_qs = Tag.objects.filter(document=document_data)
-                tags = list(tag_qs.values_list("page_number", flat=True))
-
-                return JsonResponse(tags)
+                tags = list(tag_qs.values_list(*FIELDS_TO_EXPORT))
+                excel_file_name = f"{document_data.document_number}_tags.xlsx"
             # Batch request, make query
             else:
-                from ocr.main.utils.task_helpers import (
-                    _chunk_and_dispatch_tasks,
-                )
-
                 vessel = form.cleaned_data["vessel"]
-                origin = form.cleaned_data["origin"]
+                origin = form.cleaned_data["department_origin"]
                 config = form.cleaned_data["config"]
 
-                query = Document.objects.filter(vessel=vessel, config=config)
+                query = Document.objects.filter(vessel=vessel)
                 if origin:
                     query = query.filter(department_origin=origin)
 
                 document_ids = list(query.values_list("id", flat=True))
-                tags_qs = Tag.objects.filter(document_ids=document_ids)
-                tags = list(tags_qs.values_list("page_number", flat=True))
+                if not document_ids:
+                    logger.warning("No documents found for export.")
+                    form.add_error(
+                        None, "No documents found for the selected criteria."
+                    )
+                    return render(request, "export.html", {"form": form})
+                tags_qs = Tag.objects.filter(
+                    document_id__in=document_ids, detections__config=config
+                )
+                tags = list(tags_qs.values_list(*FIELDS_TO_EXPORT))
+                excel_file_name = f"{vessel.name if vessel else "all_vessels"}_{origin if origin else "all_origins"}_tags.xlsx"  # noqa E501
 
-                return JsonResponse(tags)
-    pass
+            # Construct Excel file
+            data_obj = {"tags": tags}
+
+            try:
+                excel_bytes = export_document_tags_to_excel(
+                    data_object=data_obj
+                )
+
+                response = HttpResponse(
+                    excel_bytes,
+                    content_type=(
+                        "application/"
+                        "vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    ),
+                )
+                response["Content-Disposition"] = (
+                    f'attachment; filename="{excel_file_name}"'
+                )
+                return response
+
+            except Exception as e:
+                logger.error(
+                    f"Error generating Excel file: {e}", exc_info=True
+                )
+                form.add_error(None, f"Error generating Excel file: {e}")
+                return render(
+                    request, "export.html", {"form": form, "error": str(e)}
+                )
+        else:
+            logger.error("Form is invalid")
+            logger.error(f"Form errors: {form.errors}")
+            return redirect(
+                reverse("ocr:document_detail", args=[document_data.id])
+            )
+    else:
+        logger.info("GET")
+        form = ExportForm()
+        return render(request, "export.html", {"form": form})
 
 
 def export_pdf(request):

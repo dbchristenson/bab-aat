@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Create OCR Configuration{% endblock %}
 
@@ -50,17 +51,17 @@
 
                     <!-- Origin Field -->
                     <div class="mb-4">
-                        <label for="{{ form.origin.id_for_label }}" class="form-label fw-bold">
+                        <label for="{{ form.department_origin.id_for_label }}" class="form-label fw-bold">
                             <i class="fas fa-building me-2 text-primary"></i>
                             Select Department Origin
                         </label>
                         <div class="input-group">
-                            {{ form.origin }}
+                            {{ form.department_origin }}
                         </div>
-                        {% if form.origin.help_text %}
+                        {% if form.department_origin.help_text %}
                         <div class="form-text mt-2">{{ form.origin.help_text }}</div>
                         {% endif %}
-                        {% if form.origin.errors %}
+                        {% if form.department_origin.errors %}
                         <div class="invalid-feedback d-block">
                             {% for error in form.origin.errors %}{{ error }}{% endfor %}
                         </div>

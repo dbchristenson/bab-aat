@@ -16,7 +16,7 @@ class UploadFileForm(forms.Form):
 
     vessel = forms.ModelChoiceField(
         queryset=Vessel.objects.all(),
-        empty_label="— select vessel —",
+        empty_label="— Select Vessel —",
         required=True,
         help_text="Select the vessel associated with these documents",
     )
@@ -39,7 +39,7 @@ class UploadFileForm(forms.Form):
         file = self.cleaned_data.get("file")
         if not file:
             raise forms.ValidationError(
-                "No file selected. Please select a file."
+                "No file selected. Please Select a file."
             )
 
         # File size
@@ -90,7 +90,7 @@ class DeleteDocumentsFromVesselForm(forms.Form):
 
     vessel = forms.ModelChoiceField(
         queryset=Vessel.objects.all(),
-        empty_label="— select vessel —",
+        empty_label="— Select Vessel —",
         required=True,
         help_text="Select the vessel associated with these documents",
     )
@@ -135,7 +135,7 @@ class DetectByOriginForm(forms.Form):
 
     vessel = forms.ModelChoiceField(
         queryset=Vessel.objects.all(),
-        empty_label="— select vessel —",
+        empty_label="— Select Vessel —",
         required=True,
         help_text="Select the vessel associated with the documents to detect",
     )
@@ -150,7 +150,7 @@ class DetectByOriginForm(forms.Form):
             .distinct()
             .order_by("department_origin")
         )
-        origin_choices = [("", "— select department origin —")] + [
+        origin_choices = [("", "— Select Department Origin —")] + [
             (origin, origin) for origin in distinct_origins
         ]
         self.fields["department_origin"].choices = origin_choices
@@ -164,7 +164,7 @@ class DetectByOriginForm(forms.Form):
 
     config = forms.ModelChoiceField(
         queryset=OCRConfig.objects.all(),
-        empty_label="— select OCR config —",
+        empty_label="— Select OCR Config —",
         required=True,
         help_text="Select the OCR configuration to use for detection",
     )
@@ -187,7 +187,7 @@ class ProcessDetectionsFormByUnprocessed(forms.Form):
 
     vessel = forms.ModelChoiceField(
         queryset=Vessel.objects.all(),
-        empty_label="— select vessel —",
+        empty_label="— Select Vessel —",
         required=True,
         help_text="Select the vessel associated with the documents to process",
     )
@@ -202,7 +202,7 @@ class ProcessDetectionsFormByUnprocessed(forms.Form):
             .distinct()
             .order_by("department_origin")
         )
-        origin_choices = [("", "— select department origin —")] + [
+        origin_choices = [("", "— Select Department Origin —")] + [
             (origin, origin) for origin in distinct_origins
         ]
         self.fields["origin"].choices = origin_choices
@@ -212,9 +212,10 @@ class ProcessDetectionsFormByUnprocessed(forms.Form):
         required=False,
         help_text="Select the department origin of the documents to process",
     )
+
     config = forms.ModelChoiceField(
         queryset=OCRConfig.objects.all(),
-        empty_label="— select OCR config —",
+        empty_label="— Select OCR Config —",
         required=True,
         help_text="Select the OCR configuration to use for processing",
     )
@@ -243,16 +244,32 @@ class ExportForm(forms.Form):
 
     document = forms.ModelChoiceField(
         queryset=Document.objects.all(),
-        empty_label="— select document —",
+        empty_label="— Select Document —",
         required=False,
         help_text="Select a document to export, leave blank to query",
     )
     vessel = forms.ModelChoiceField(
         queryset=Vessel.objects.all(),
-        empty_label="— select vessel —",
+        empty_label="— Select Vessel —",
         required=True,
         help_text="Select the vessel associated with the documents to export",
     )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Get distinct department_origin values from the Document model
+        # and format them for the ChoiceField.
+        distinct_origins = (
+            Document.objects.filter(department_origin__isnull=False)
+            .values_list("department_origin", flat=True)
+            .distinct()
+            .order_by("department_origin")
+        )
+        origin_choices = [("", "— Select Department Origin —")] + [
+            (origin, origin) for origin in distinct_origins
+        ]
+        self.fields["department_origin"].choices = origin_choices
+
     department_origin = forms.ChoiceField(
         choices=[],
         required=False,
@@ -260,13 +277,13 @@ class ExportForm(forms.Form):
     )
     config = forms.ModelChoiceField(
         queryset=OCRConfig.objects.all(),
-        empty_label="— select OCR config —",
+        empty_label="— Select OCR Config —",
         required=True,
         help_text="Select the OCR configuration to filter documents by",
     )
     export_type = forms.ChoiceField(
-        choices=["excel", "pdf"],
-        initial="excel",
+        choices={"EXCEL": "excel", "PDF": "pdf"},
+        initial="Select Type",
         required=True,
         help_text="Select the type of file to export to",
     )
