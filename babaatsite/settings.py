@@ -173,7 +173,10 @@ STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
-CELERY_BROKER_URL = REDIS.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_REDIS_PASSWORD = REDIS.get("redis_password", "")
+CELERY_REDIS_HOST = REDIS.get("redis_host", "localhost")
+CELERY_REDIS_PORT = REDIS.get("redis_port", "6379")
+CELERY_BROKER_URL = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     "visibility_timeout": 3600,
     "health_check_interval": 25,
@@ -182,8 +185,6 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
 }
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-CELERY_RESULT_BACKEND = REDIS.get(
-    "CELERY_RESULT_BACKEND", "redis://localhost:6379/0"
-)
+CELERY_RESULT_BACKEND = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_RESULT_EXPIRES = 30 * 60  # 30 minutes
