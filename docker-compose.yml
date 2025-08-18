@@ -10,10 +10,11 @@ services:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
       SECRETS_BASE_DIR: ""
     command: >
-      uvicorn babaatsite.asgi:application
-        --host 0.0.0.0
-        --port 8080
-        --log-level info
+      sh -c "uv run modal token set --token-id $$MODAL_TOKEN_ID --token-secret $$MODAL_TOKEN_SECRET &&
+        uvicorn babaatsite.asgi:application
+          --host 0.0.0.0
+          --port 8080
+          --log-level info"
     env_file:
       - ".env"
     volumes:
@@ -33,7 +34,8 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
     command: >
-      uv run celery -A babaatsite worker --pool prefork --concurrency 8 --loglevel info
+      sh -c "uv run modal token set --token-id $$MODAL_TOKEN_ID --token-secret $$MODAL_TOKEN_SECRET &&
+        uv run celery -A babaatsite worker --pool prefork --concurrency 8 --loglevel info"
     env_file:
       - ".env"
     volumes:
