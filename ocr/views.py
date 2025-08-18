@@ -20,6 +20,7 @@ from ocr.main.export.excel import (
     FIELDS_TO_EXPORT,
     export_document_tags_to_excel,
 )
+from ocr.main.export.pdf import export_document_to_tagged_pdf
 from ocr.main.inference.handle_batch_detections import (
     handle_batch_document_detections,
 )
@@ -721,4 +722,35 @@ def export_pdf(request):
     Returns:
         An HTTP response with the PDF file attachment.
     """
-    pass
+    if request.method == "POST":
+        form = ExportForm(request.POST)
+        if form.is_valid():
+            document = form.cleaned_data.get("document")
+            config = form.cleaned_data.get("config")
+
+            try:
+                pdf_bytes = export_document_to_tagged_pdf(
+                    document_id=document.id, config_id=config.id
+                )
+
+                response = HttpResponse(
+                    pdf_bytes, content_type="application/pdf"
+                )
+                response["Content-Disposition"] = (
+                    f'attachment; filename="{document.document_number}.pdf"'
+                )
+                return response
+
+            except Exception as e:
+                logger.error(f"Error generating PDF file: {e}", exc_info=True)
+                form.add_error(None, f"Error generating PDF file: {e}")
+                return render(
+                    request, "export.html", {"form": form, "error": str(e)}
+                )
+        else:
+            logger.error("Form is invalid")
+            logger.error(f"Form errors: {form.errors}")
+            return render(request, "export.html", {"form": form})
+    else:
+        form = ExportForm()
+        return render(request, "export.html", {"form": form})
