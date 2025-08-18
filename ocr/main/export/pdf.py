@@ -45,11 +45,9 @@ def _add_invisible_text_to_page(
         )
 
         # Insert invisible text
-        page.insert_textbox(
-            rect,
-            tag.text,
-            fontname="helv",
-            color=(0, 0, 0),  # Black text
+        page.add_freetext_annot(
+            rect=rect,
+            text=tag.text,
             opacity=0,  # Fully transparent
             align=pymupdf.TEXT_ALIGN_LEFT,
             fontsize=rect.height * 0.8,  # Scale font to fit height
