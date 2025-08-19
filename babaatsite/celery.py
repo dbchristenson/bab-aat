@@ -12,12 +12,8 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "babaatsite.settings")
 if platform == "darwin":
     os.environ["OBJC_DISABLE_INITIALIZE_FORK_SAFETY"] = "YES"
 
-app = Celery(
-    "babaatsite",
-)
-
+app = Celery("babaatsite")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-
 app.autodiscover_tasks()
 
 

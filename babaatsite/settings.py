@@ -25,32 +25,42 @@ SECRETS = load_all_secrets()
 SUPABASE = SECRETS.get("supabase", {})
 S3 = SECRETS.get("s3", {})
 REDIS = SECRETS.get("redis", {})
-DJANGO_SECRET = SECRETS.get("django_secret", "")
+DJANGO_SECRET = SECRETS.get("django_secret", "dev-secret-key")
 HOSTS = SECRETS.get("hosts", {})
 
-# validate that all secrets contain some value
-for secret in [SUPABASE, S3, REDIS, DJANGO_SECRET, HOSTS]:
-    if not secret:
-        raise ValueError(
-            f"One or more secrets are missing or empty. {secret} broke first."
-        )
+USE_LOCAL_DB = not SUPABASE
+USE_LOCAL_STORAGE = not S3
+USE_LOCAL_REDIS = not REDIS
 
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-    "default": {
-        "BACKEND": "ocr.storages.MultipartOnlyS3Storage",
-        "OPTIONS": {
-            "bucket_name": S3.get("bucketname", "media"),
-            "access_key": S3.get("accesskey"),
-            "secret_key": S3.get("secretkey"),
-            "endpoint_url": S3.get("endpoint"),
-            "region_name": S3.get("region"),
+# Storage config
+if USE_LOCAL_STORAGE:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
-    },
-}
-
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+            "OPTIONS": {
+                "location": MEDIA_ROOT,
+            },
+        },
+    }
+else:
+    STORAGES = {
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+        "default": {
+            "BACKEND": "ocr.storages.MultipartOnlyS3Storage",
+            "OPTIONS": {
+                "bucket_name": S3.get("bucketname", "media"),
+                "access_key": S3.get("accesskey"),
+                "secret_key": S3.get("secretkey"),
+                "endpoint_url": S3.get("endpoint"),
+                "region_name": S3.get("region"),
+            },
+        },
+    }
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -119,16 +129,25 @@ WSGI_APPLICATION = "babaatsite.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": SUPABASE.get("dbname"),
-        "USER": SUPABASE.get("user"),
-        "PASSWORD": SUPABASE.get("password"),
-        "HOST": SUPABASE.get("host"),
-        "PORT": SUPABASE.get("port"),
+# Database config
+if USE_LOCAL_DB:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": SUPABASE.get("dbname"),
+            "USER": SUPABASE.get("user"),
+            "PASSWORD": SUPABASE.get("password"),
+            "HOST": SUPABASE.get("host"),
+            "PORT": SUPABASE.get("port"),
+        }
+    }
 
 
 # Password validation
@@ -173,10 +192,18 @@ STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Celery settings
-CELERY_REDIS_PASSWORD = REDIS.get("redis_password", "")
-CELERY_REDIS_HOST = REDIS.get("redis_host", "localhost")
-CELERY_REDIS_PORT = REDIS.get("redis_port", "6379")
+# Redis config for Celery
+if USE_LOCAL_REDIS:
+    CELERY_REDIS_PASSWORD = ""
+    CELERY_REDIS_HOST = "localhost"
+    CELERY_REDIS_PORT = "6379"
+else:
+    CELERY_REDIS_PASSWORD = REDIS.get("redis_password", "")
+    CELERY_REDIS_HOST = REDIS.get("redis_host", "localhost")
+    CELERY_REDIS_PORT = REDIS.get("redis_port", "6379")
+
 CELERY_BROKER_URL = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
+CELERY_RESULT_BACKEND = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     "visibility_timeout": 3600,
     "health_check_interval": 25,
@@ -184,7 +211,8 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     "socket_connect_timeout": 10,
 }
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-
-CELERY_RESULT_BACKEND = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
 CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
 CELERY_RESULT_EXPIRES = 30 * 60  # 30 minutes
+
+SECRET_KEY = DJANGO_SECRET
+DEBUG = True
