@@ -61,6 +61,10 @@ def run_postprocessing_pipeline(document_id: int):
     tag_det_data = merge_touching_detections(detections)
     tag_det_data = remove_single_character_detections(tag_det_data)
     tag_det_data = remove_numeric_only_tags(tag_det_data)
-    tag_det_data = spell_check_tags(tag_det_data)
+
+    # Removed due to lack of manpower to build dictionary of words
+    # for spell checking. To add back in the future you need to readd
+    # pyspellchecker to pyproject.toml and uncomment the line below.
+    # tag_det_data = spell_check_tags(tag_det_data)
 
     return _save_tags(tag_det_data)
