@@ -44,14 +44,13 @@ def _add_invisible_text_to_page(
             min(x_coords), min(y_coords), max(x_coords), max(y_coords)
         )
 
-        # Insert invisible text
-        page.add_freetext_annot(
-            rect=rect,
-            text=tag.text,
-            opacity=0,  # Fully transparent
+        page.insert_textbox(
+            rect,
+            tag.text,
+            fontsize=rect.height * 0.8,
             align=pymupdf.TEXT_ALIGN_LEFT,
-            fontsize=rect.height * 0.8,  # Scale font to fit height
             rotate=page.rotation,
+            render_mode=3,
         )
 
 
