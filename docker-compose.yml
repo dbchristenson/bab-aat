@@ -34,7 +34,7 @@ services:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
     command: >
       sh -c "uv run modal token set --token-id $$MODAL_TOKEN_ID --token-secret $$MODAL_TOKEN_SECRET &&
-        uv run celery -A babaatsite worker --pool prefork --concurrency 8 --loglevel info"
+        uv run celery -A babaatsite worker --pool prefork --concurrency 2 --loglevel info"
     env_file:
       - ".env"
     volumes:
