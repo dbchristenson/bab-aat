@@ -4,7 +4,6 @@ from ocr.main.inference.postprocessing.pipeline_steps import (
     merge_touching_detections,
     remove_numeric_only_tags,
     remove_single_character_detections,
-    spell_check_tags,
 )
 from ocr.models import Detection, Tag
 
@@ -65,6 +64,8 @@ def run_postprocessing_pipeline(document_id: int):
     # Removed due to lack of manpower to build dictionary of words
     # for spell checking. To add back in the future you need to readd
     # pyspellchecker to pyproject.toml and uncomment the line below.
+    # Then go to pipeline_steps.py and uncomment the helper functions
+    # in that file
     # tag_det_data = spell_check_tags(tag_det_data)
 
     return _save_tags(tag_det_data)

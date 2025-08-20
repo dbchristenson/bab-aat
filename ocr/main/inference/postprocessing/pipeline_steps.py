@@ -2,9 +2,10 @@ import re
 from collections import defaultdict, deque
 
 from loguru import logger
-from spellchecker import SpellChecker
 
 from ocr.models import Tag
+
+# from spellchecker import SpellChecker
 
 
 def _get_bbox_extremes(bbox_points: list) -> tuple[float, float, float, float]:
@@ -229,11 +230,11 @@ def _remove_specified_chars(word: str) -> str:
     return word.translate(translation_table)
 
 
-def _correct_text_if_needed(
+"""def _correct_text_if_needed(
     text_to_check: str,
     spell_checker: SpellChecker,
 ) -> tuple[str, bool]:
-    """
+
     Spell checks and corrects a single text string based on conditions.
 
     Args:
@@ -243,7 +244,7 @@ def _correct_text_if_needed(
     Returns:
         tuple[str, bool]: The corrected text and a boolean indicating
                           if any correction was made.
-    """
+
     words = text_to_check.split()
     corrected_word_list = []
     text_was_changed = False
@@ -276,11 +277,11 @@ def _correct_text_if_needed(
         # Return original text instance if no effective changes
         return text_to_check, False
 
-    return " ".join(corrected_word_list), True
+    return " ".join(corrected_word_list), True"""
 
-
+"""
 def spell_check_tags(tag_det_data: list[tuple]) -> list[tuple]:
-    """
+
     Spell check the tags and return corrected tags.
 
     Some strings in tags may be misspelled and need correction. The tags which
@@ -294,7 +295,7 @@ def spell_check_tags(tag_det_data: list[tuple]) -> list[tuple]:
 
     Returns:
         list[tuple]: List of corrected tuples.
-    """
+
     logger.info("Spell checking tags.")
     spell = SpellChecker()
     spell.word_frequency.load_dictionary(
@@ -334,3 +335,4 @@ def spell_check_tags(tag_det_data: list[tuple]) -> list[tuple]:
         return tag_det_data
 
     return new_data
+"""
