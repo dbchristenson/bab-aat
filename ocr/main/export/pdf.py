@@ -7,16 +7,27 @@ from ocr.main.utils.pdf_utils import get_pdf_object
 from ocr.models import Tag
 
 
-def _add_invisible_text_to_page(
-    page: pymupdf.Page, tags: list, render_scale: float = 2.0
-):
-    """Add invisible text to a page based on tag data.
+def _best_fit_fontsize(
+    text: str,
+    rect: pymupdf.Rect,
+    fontname: str = "helv",
+    height_fill: float = 0.8,
+) -> float:
+    """Start from height, then shrink to fit width if needed."""
+    if not text:
+        return 1.0
+    size = max(rect.height * height_fill, 0.5)
+    try:
+        w = pymupdf.get_text_length(text, fontname=fontname, fontsize=size)
+        if w > rect.width and w > 0:
+            size *= rect.width / w
+    except Exception as e:
+        logger.warning(f"get_text_length failed: {e}")
+    return max(size, 0.5)
 
-    Args:
-        page: The PDF page to add text to
-        tags: List of Tag objects with text and bbox data
-        render_scale: Scale factor for rendering
-    """
+
+def _add_invisible_text_to_page(page: pymupdf.Page, tags: list) -> None:
+    """Add invisible (but selectable) text to a page based on tag data."""
     if not tags:
         logger.info("No tags to process for this page")
         return
@@ -27,75 +38,62 @@ def _add_invisible_text_to_page(
         if not tag.text or not tag.bbox:
             continue
 
-        # Transform coordinates using rotation matrix like in drawing.py
-        polygon_vertices_unrotated_pdf = []
-        for p_rot_coords in tag.bbox:
-            pt_in_rotated_frame = pymupdf.Point(
-                p_rot_coords[0], p_rot_coords[1]
-            )
-            pt_in_unrotated_frame = pt_in_rotated_frame * inv_rotation_matrix
-            polygon_vertices_unrotated_pdf.append(pt_in_unrotated_frame)
+        # Transform bbox from rotated -> intrinsic frame
+        pts = []
+        for x, y in tag.bbox:
+            pts.append(pymupdf.Point(x, y) * inv_rotation_matrix)
 
-        # Calculate bounding box dimensions
-        x_coords = [p.x for p in polygon_vertices_unrotated_pdf]
-        y_coords = [p.y for p in polygon_vertices_unrotated_pdf]
-
+        # Axis-aligned rect from quad
+        x_coords = [p.x for p in pts]
+        y_coords = [p.y for p in pts]
         rect = pymupdf.Rect(
             min(x_coords), min(y_coords), max(x_coords), max(y_coords)
+        )
+
+        # Height-first auto-fit with width clamp
+        fontsize = _best_fit_fontsize(
+            tag.text, rect, fontname="helv", height_fill=0.8
         )
 
         page.insert_textbox(
             rect,
             tag.text,
-            fontsize=rect.height * 0.8,
+            fontname="helv",
+            fontsize=fontsize,
             align=pymupdf.TEXT_ALIGN_LEFT,
             rotate=page.rotation,
-            render_mode=3,
+            render_mode=3,  # invisible text layer in the content stream
         )
 
 
 def export_document_to_tagged_pdf(document_id: int, config_id: int) -> bytes:
-    """Export a document as a PDF with invisible searchable text.
-
-    Args:
-        document_id: ID of the document to export
-        config_id: ID of the OCR config used
-
-    Returns:
-        bytes: The PDF file as bytes
-    """
-    # Load PDF without rotation like in drawing.py
+    """Export a document as a PDF with invisible searchable text."""
     pdf = get_pdf_object(document_id, pdf_lib="pymupdf")
-
-    # Create output PDF
     output_pdf = pymupdf.open()
 
-    # Process each page
-    for page_num in range(len(pdf)):
-        # Get page (1-indexed for Django, 0-indexed for pymupdf)
-        source_page = pdf[page_num]
+    for page_idx in range(len(pdf)):
+        source_page = pdf[page_idx]
 
-        # Get tags for this page
+        # IMPORTANT: use _id to filter by FK id
         tags = Tag.objects.filter(
             document_id=document_id,
-            detections__config=config_id,
-            page_number=page_num + 1,
+            detections__config_id=config_id,
+            page_number=page_idx + 1,  # your DB is 1-indexed
         ).distinct()
 
-        # Create new page in output PDF
         output_page = output_pdf.new_page(
-            width=source_page.rect.width, height=source_page.rect.height
+            width=source_page.rect.width,
+            height=source_page.rect.height,
         )
 
-        # Copy original content
-        output_page.show_pdf_page(output_page.rect, pdf, page_num)
+        # Copy visual content
+        output_page.show_pdf_page(output_page.rect, pdf, page_idx)
 
-        # Add invisible text
+        # Add invisible, highlightable text
         _add_invisible_text_to_page(output_page, tags)
 
-    # Save to bytes
-    output_bytes = io.BytesIO()
-    output_pdf.save(output_bytes)
-    output_bytes.seek(0)
-
-    return output_bytes.getvalue()
+    buf = io.BytesIO()
+    # Smaller, cleaner PDFs
+    output_pdf.save(buf, deflate=True, garbage=3)
+    buf.seek(0)
+    return buf.getvalue()
