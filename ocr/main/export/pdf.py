@@ -60,10 +60,9 @@ def _add_invisible_text_to_page(page: pymupdf.Page, tags: list) -> None:
             tag.text,
             fontname="helv",
             fontsize=fontsize,
-            fontcolor=(1, 0, 0),  # red
             align=pymupdf.TEXT_ALIGN_LEFT,
             rotate=page.rotation,
-            render_mode=0,  # invisible text layer in the content stream
+            render_mode=3,  # invisible text layer in the content stream
         )
 
 
