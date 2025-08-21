@@ -209,14 +209,29 @@ CELERY_BROKER_TRANSPORT_OPTIONS = {
     "health_check_interval": 25,
     "socket_timeout": 10,
     "socket_connect_timeout": 10,
+    "socket_keepalive": True,
 }
 CELERY_BROKER_POOL_LIMIT = 2
+CELERY_BROKER_MAX_CONNECTIONS = 4
 CELERY_BROKER_HEARTBEAT = 30
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_TIME_LIMIT = 10 * 60  # 10 minutes -> 40 pages (conservative est.)
 CELERY_RESULT_EXPIRES = 10 * 60  # 10 minutes -> 40 pages (conservative est.)
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_ACKS_LATE = True
+CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {
+    "retry_on_timeout": True,
+    "health_check_interval": 25,
+    "socket_keepalive": True,
+}
+
+CELERY_TASK_PUBLISH_RETRY = True
+CELERY_TASK_PUBLISH_RETRY_POLICY = {
+    "max_retries": 5,
+    "interval_start": 0,
+    "interval_step": 0.5,
+    "interval_max": 5,
+}
 
 SECRET_KEY = DJANGO_SECRET
 DEBUG = True
