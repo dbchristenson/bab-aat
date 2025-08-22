@@ -74,12 +74,11 @@ def export_document_to_tagged_pdf(document_id: int, config_id: int) -> bytes:
     for page_idx in range(len(pdf)):
         source_page = pdf[page_idx]
 
-        # IMPORTANT: use _id to filter by FK id
         tags = Tag.objects.filter(
             document_id=document_id,
             detections__config_id=config_id,
             page_number=page_idx + 1,  # your DB is 1-indexed
-        ).distinct()
+        )
 
         output_page = output_pdf.new_page(
             width=source_page.rect.width,
