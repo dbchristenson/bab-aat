@@ -78,7 +78,10 @@ def export_document_to_tagged_pdf(document_id: int, config_id: int) -> bytes:
             document_id=document_id,
             detections__config_id=config_id,
             page_number=page_idx + 1,  # your DB is 1-indexed
-        )
+        ).distinct()
+
+        # log each tag text
+        logger.info(tag.text for tag in tags)
 
         output_page = output_pdf.new_page(
             width=source_page.rect.width,
