@@ -61,7 +61,6 @@ def _add_invisible_text_to_page(page: pymupdf.Page, tags: list) -> None:
             fontname="helv",
             fontsize=fontsize,
             align=pymupdf.TEXT_ALIGN_LEFT,
-            rotate=page.rotation,
             render_mode=3,  # invisible text layer in the content stream
         )
 
@@ -81,7 +80,8 @@ def export_document_to_tagged_pdf(document_id: int, config_id: int) -> bytes:
         ).distinct()
 
         # log each tag text
-        logger.info(tag.text for tag in tags)
+        for tag in tags:
+            logger.info(tag.text)
 
         output_page = output_pdf.new_page(
             width=source_page.rect.width,

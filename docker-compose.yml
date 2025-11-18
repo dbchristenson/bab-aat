@@ -1,3 +1,7 @@
+# Define a named volume for persistent Postgres data
+volumes:
+  postgres_data:
+
 services:
   web:
     build:
@@ -18,17 +22,16 @@ services:
       - ".env"
     volumes:
       - ./resources/media:/app/resources/media
+    depends_on:
+      - db   # <-- Wait for db to be ready
+      - redis # <-- Wait for redis to be ready
     deploy:
       resources:
         limits:
           memory: 2G
 
   worker:
-    build:
-      context: .
-      dockerfile: build.Dockerfile
-    depends_on:
-      - web
+    # No 'build' needed; it uses the same image as 'web'
     image: bab-aat:latest
     environment:
       DJANGO_SETTINGS_MODULE: "babaatsite.settings"
@@ -39,9 +42,33 @@ services:
       - ".env"
     volumes:
       - ./resources/media:/app/resources/media
+    depends_on:
+      - db   # <-- Wait for db to be ready
+      - redis # <-- Wait for redis to be ready
     deploy:
       resources:
         limits:
           memory: 8G
         reservations:
           memory: 2G
+
+  # NEW: Adds a Redis container for local Celery
+  redis:
+    image: "redis:7-alpine"
+    restart: always
+    ports:
+      - "6379:6379" # Expose to host machine for debugging
+
+  # NEW: Adds a Postgres container for your local database
+  db:
+    image: postgres:16-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Use the named volume
+    environment:
+      # These credentials are for local dev only
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "mysecretpassword"
+      POSTGRES_DB: "babaatsite"
+    ports:
+      - "5432:5432" # Expose to host machine for debugging

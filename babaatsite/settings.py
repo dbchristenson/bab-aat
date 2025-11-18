@@ -28,9 +28,12 @@ REDIS = SECRETS.get("redis", {})
 DJANGO_SECRET = SECRETS.get("django_secret", "dev-secret-key")
 HOSTS = SECRETS.get("hosts", {})
 
-USE_LOCAL_DB = not SUPABASE
-USE_LOCAL_STORAGE = not S3
-USE_LOCAL_REDIS = not REDIS
+# Set FORCE_LOCAL_DEV=True in your .env file to force local services
+FORCE_LOCAL_DEV = os.environ.get("FORCE_LOCAL_DEV", "False") == "True"
+
+USE_LOCAL_DB = (not SUPABASE) or FORCE_LOCAL_DEV
+USE_LOCAL_STORAGE = (not S3) or FORCE_LOCAL_DEV
+USE_LOCAL_REDIS = (not REDIS) or FORCE_LOCAL_DEV
 
 # Storage config
 if USE_LOCAL_STORAGE:
@@ -133,8 +136,12 @@ WSGI_APPLICATION = "babaatsite.wsgi.application"
 if USE_LOCAL_DB:
     DATABASES = {
         "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "babaatsite",  # Matches POSTGRES_DB
+            "USER": "postgres",  # Matches POSTGRES_USER
+            "PASSWORD": "mysecretpassword",  # Matches POSTGRES_PASSWORD
+            "HOST": "db",  # The service name in docker-compose.yml
+            "PORT": "5432",
         }
     }
 else:
@@ -195,15 +202,20 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Redis config for Celery
 if USE_LOCAL_REDIS:
     CELERY_REDIS_PASSWORD = ""
-    CELERY_REDIS_HOST = "localhost"
+    CELERY_REDIS_HOST = "redis"
     CELERY_REDIS_PORT = "6379"
 else:
     CELERY_REDIS_PASSWORD = REDIS.get("redis_password", "")
     CELERY_REDIS_HOST = REDIS.get("redis_host", "localhost")
     CELERY_REDIS_PORT = REDIS.get("redis_port", "6379")
 
-CELERY_BROKER_URL = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
-CELERY_RESULT_BACKEND = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
+# CELERY_BROKER_URL = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
+# CELERY_RESULT_BACKEND = f"redis://:{CELERY_REDIS_PASSWORD}@{CELERY_REDIS_HOST}:{CELERY_REDIS_PORT}/0"
+
+CELERY_BROKER_URL = "redis://127.0.0.1:6379"
+CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379"
+
+
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     "visibility_timeout": 3600,
     "health_check_interval": 25,
