@@ -292,9 +292,9 @@ def document_detail(request, document_id):
         for p in pages:
             tags = Tag.objects.filter(
                 document=document,
-                document__pages__page_number=p.page_number,
+                page_number=p.page_number,
                 detections__config=selected_config,
-            )
+            ).distinct()
             if tags.exists():
                 annotated_image_url = p.get_annotated_image_url(
                     config_id=selected_config.id
