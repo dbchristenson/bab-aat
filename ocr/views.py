@@ -1,3 +1,5 @@
+import io
+import zipfile
 from pathlib import Path
 
 import markdown
@@ -290,9 +292,9 @@ def document_detail(request, document_id):
         for p in pages:
             tags = Tag.objects.filter(
                 document=document,
-                document__pages__page_number=p.page_number,
+                page_number=p.page_number,
                 detections__config=selected_config,
-            )
+            ).distinct()
             if tags.exists():
                 annotated_image_url = p.get_annotated_image_url(
                     config_id=selected_config.id
@@ -579,6 +581,17 @@ def process_detections(request):
 
 # EXPORT
 # ------------------------------------------------------------------------------
+def _suffix_ocr_filename(document_number: str) -> str:
+    """
+    Append '-ocr' or '—ocr' before the .pdf extension.
+    """
+    suffix = "—ocr" if "—" in document_number else "-ocr"
+    base = document_number
+    if base.lower().endswith(".pdf"):
+        base = base[:-4]
+    return f"{base}{suffix}.pdf"
+
+
 def export(request):
     """
     This view serves the export template.
@@ -711,16 +724,9 @@ def export_pdf(request):
     """
     Export reconstructed PDF for document(s).
 
-    The goal of this function is to write invisible text to the PDF
-    for each tag related to the document(s). The text will be written
-    in the same location as the tag's bounding box coordinates in an
-    appropriate font size.
-
-    Args:
-        request: The HTTP request object.
-
-    Returns:
-        An HTTP response with the PDF file attachment.
+    For a single document: returns one PDF named '<doc_number>-ocr.pdf'.
+    For batch: returns a ZIP containing one OCR PDF per document, using the
+    same vessel/origin/config filtering pattern as Excel export.
     """
     if request.method == "POST":
         form = ExportForm(request.POST)
@@ -728,25 +734,86 @@ def export_pdf(request):
             document = form.cleaned_data.get("document")
             config = form.cleaned_data.get("config")
 
-            try:
-                pdf_bytes = export_document_to_tagged_pdf(
-                    document_id=document.id, config_id=config.id
-                )
+            # ---- SINGLE DOCUMENT BRANCH ----
+            if document:
+                try:
+                    pdf_bytes = export_document_to_tagged_pdf(
+                        document_id=document.id, config_id=config.id
+                    )
+                    out_name = _suffix_ocr_filename(document.document_number)
+                    response = HttpResponse(
+                        pdf_bytes, content_type="application/pdf"
+                    )
+                    response["Content-Disposition"] = (
+                        f'attachment; filename="{out_name}"'
+                    )
+                    return response
+                except Exception as e:
+                    logger.error(
+                        f"Error generating PDF file: {e}", exc_info=True
+                    )
+                    form.add_error(None, f"Error generating PDF file: {e}")
+                    return render(
+                        request, "export.html", {"form": form, "error": str(e)}
+                    )
 
-                response = HttpResponse(
-                    pdf_bytes, content_type="application/pdf"
+            # ---- BATCH BRANCH (mirror Excel export) ----
+            vessel = form.cleaned_data.get("vessel")
+            origin = form.cleaned_data.get("department_origin")
+
+            try:
+                query = Document.objects.filter(vessel=vessel)
+                if origin:
+                    query = query.filter(department_origin=origin)
+
+                document_ids = list(query.values_list("id", flat=True))
+                if not document_ids:
+                    logger.warning("No documents found for export.")
+                    form.add_error(
+                        None, "No documents found for the selected criteria."
+                    )
+                    return render(request, "export.html", {"form": form})
+
+                # Build ZIP of PDFs in-memory
+                zip_buf = io.BytesIO()
+                with zipfile.ZipFile(
+                    zip_buf, "w", compression=zipfile.ZIP_DEFLATED
+                ) as zf:
+                    # Iterate without loading all files into memory at once
+                    for doc in query.iterator():
+                        try:
+                            pdf_bytes = export_document_to_tagged_pdf(
+                                document_id=doc.id, config_id=config.id
+                            )
+                            zf.writestr(
+                                _suffix_ocr_filename(doc.document_number),
+                                pdf_bytes,
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Error generating PDF for document {doc.id} ({doc.document_number}): {e}",  # noqa E501
+                                exc_info=True,
+                            )
+                            # Fail fast as per your guidance
+                            raise
+
+                zip_buf.seek(0)
+                zip_name = f'{vessel.name if vessel else "all_vessels"}_{origin if origin else "all_origins"}_pdfs.zip'  # noqa E501
+                resp = HttpResponse(
+                    zip_buf.getvalue(), content_type="application/zip"
                 )
-                response["Content-Disposition"] = (
-                    f'attachment; filename="{document.document_number}.pdf"'
+                resp["Content-Disposition"] = (
+                    f'attachment; filename="{zip_name}"'
                 )
-                return response
+                return resp
 
             except Exception as e:
-                logger.error(f"Error generating PDF file: {e}", exc_info=True)
-                form.add_error(None, f"Error generating PDF file: {e}")
+                logger.error(f"Batch PDF export error: {e}", exc_info=True)
+                form.add_error(None, f"Error generating batch PDF export: {e}")
                 return render(
                     request, "export.html", {"form": form, "error": str(e)}
                 )
+
         else:
             logger.error("Form is invalid")
             logger.error(f"Form errors: {form.errors}")

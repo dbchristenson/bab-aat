@@ -190,7 +190,6 @@ dependencies = [
     { name = "pympler" },
     { name = "pymupdf" },
     { name = "pypdfium2" },
-    { name = "pyspellchecker" },
     { name = "python-magic", marker = "sys_platform != 'win32'" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'" },
     { name = "seaborn" },
@@ -214,7 +213,7 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "markdown", specifier = ">=3.8" },
     { name = "memory-profiler", specifier = ">=0.61.0" },
-    { name = "modal", specifier = ">=1.0.2" },
+    { name = "modal", specifier = "==1.1.3" },
     { name = "opencv-python", specifier = "==4.11.0.86" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "paddleocr", specifier = "==3.0.0" },
@@ -226,7 +225,6 @@ requires-dist = [
     { name = "pympler", specifier = ">=1.1" },
     { name = "pymupdf", specifier = ">=1.26.0" },
     { name = "pypdfium2", specifier = ">=4.30.1" },
-    { name = "pyspellchecker", specifier = ">=0.8.3" },
     { name = "python-magic", marker = "sys_platform != 'win32'", specifier = ">=0.4.27" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'", specifier = ">=0.4.14" },
     { name = "seaborn", specifier = ">=0.13.2" },
@@ -1574,7 +1572,7 @@ wheels = [
 
 [[package]]
 name = "modal"
-version = "1.0.2"
+version = "1.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1591,9 +1589,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "watchfiles" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/88/54/8d5d6090383698bd6c0d9612a1958c7b628260317063339a74f73a943e60/modal-1.0.2.tar.gz", hash = "sha256:f79cc1c75b378f1c92365a0a05741ac719af3d5900b67947c159c11df17d4ccc", size = 506313, upload_time = "2025-05-26T21:30:25.285Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/99/67bad0582adfdad88eee5918548b85fbb53c91af4ebb6d418ec01d7878ac/modal-1.1.3.tar.gz", hash = "sha256:6183117ceeb9d62696e9a6c181955669b241515c339c51f3d4c72d0688af44aa", size = 590327, upload_time = "2025-08-19T21:26:20.057Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/0b/5d6a775ec1901381b5a81e0c88db10efebd74f010bcae3613b418a46ae9c/modal-1.0.2-py3-none-any.whl", hash = "sha256:639bc4a0afa633f7a14355f730426c52627452b102af23358dcee36233abe958", size = 574253, upload_time = "2025-05-26T21:30:21.653Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/06/71c85be04d43e5e627aa4fd505d745e4e59b3e9a83a77fb1087797ec4d0c/modal-1.1.3-py3-none-any.whl", hash = "sha256:4444cd5e59025ab595934e805eb139dfa3758f87ef44b443ca88dc139adac11b", size = 681441, upload_time = "2025-08-19T21:26:18.215Z" },
 ]
 
 [[package]]
@@ -2406,15 +2404,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyspellchecker"
-version = "0.8.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0f/f9/8a329c7bea910204aeb78a879141a9cf6b4252098c87974f54b26985959e/pyspellchecker-0.8.3.tar.gz", hash = "sha256:cb06eeafe124837f321e0d02f8e21deab713e966e28e0360319a28a089c43978", size = 7238621, upload_time = "2025-05-19T00:53:23.747Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/95/f0ee873c7ff455f2ef16a58320954ed6c6f8d30d59c8c781154deb398bd8/pyspellchecker-0.8.3-py3-none-any.whl", hash = "sha256:e993076e98b0da5a99b7cc31085c3022c77a9dc37c5e95f5cf6304b5dbb8b9d2", size = 7236810, upload_time = "2025-05-19T00:53:21.785Z" },
-]
-
-[[package]]
 name = "python-dateutil"
 version = "2.9.0.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -2966,15 +2955,15 @@ wheels = [
 
 [[package]]
 name = "synchronicity"
-version = "0.9.12"
+version = "0.10.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sigtools" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/21/82c2b51f901452642cb2ed69ab872ef5eacbf98dbd0b661d3673a76d79f5/synchronicity-0.9.12.tar.gz", hash = "sha256:977f3ed8f6e35de4d1a3f0aeee4937143ba8d913f531d33e8df7c539b2792fb8", size = 50441, upload_time = "2025-05-07T12:07:41.901Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/77/b6/e977f03915cc02406bb52ac15398ea44dbde47805e5955b6bac9268acc12/synchronicity-0.10.2.tar.gz", hash = "sha256:e0dfd8a2ba4fb89c60ee53365c5fa2d2d69aabce60709055d38f736f6a592c86", size = 53891, upload_time = "2025-07-30T20:23:19.122Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/e3/730a67bee380f5638731cd563e8f5ad3a2d480ee788b767698e83eb2290f/synchronicity-0.9.12-py3-none-any.whl", hash = "sha256:b006f57bd216d55e578316096a11b6dc16016d6b48e2766bcffabe40c88f9793", size = 36820, upload_time = "2025-05-07T12:07:40.256Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/f9/ce041b9531022a0b5999a47e6da14485239f7bce9c595d1bfb387fe60e89/synchronicity-0.10.2-py3-none-any.whl", hash = "sha256:4ba1f8c02ca582ef068033300201e3c403e08d81e42553554f4e67b27f0d9bb1", size = 38766, upload_time = "2025-07-30T20:23:18.04Z" },
 ]
 
 [[package]]

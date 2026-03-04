@@ -130,7 +130,7 @@
                 {% csrf_token %}
                 <input type="hidden" name="config" value="{{ selected_config.id}}">
                 <input type="hidden" name="document" value="{{ document.id }}">
-                <input type="hidden" name="vessel" value="{{ vessel }}">
+                <input type="hidden" name="vessel" value="{{ vessel.id }}">
                 <input type="hidden" name="export_type" value="PDF">
                 <button type="submit" class="btn btn-primary w-100">
                     Export PDF
