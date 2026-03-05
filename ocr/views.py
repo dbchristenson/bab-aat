@@ -4,6 +4,7 @@ from pathlib import Path
 
 import markdown
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -32,6 +33,7 @@ from ocr.tasks import draw_ocr_results as draw_ocr_results_task
 from ocr.tasks import get_document_detections as get_document_detections_task
 
 
+@login_required
 def index(request):
     """
     Render the index page with documentation from markdown file.
@@ -112,6 +114,8 @@ def index(request):
             logger.error(f"Error reading markdown file {markdown_file}: {e}")
             context["markdown_error"] = (
                 f"Error reading documentation file: {str(e)}"
+                if settings.DEBUG
+                else "Error reading documentation file."
             )
             context["expected_path"] = str(markdown_file)
     else:
@@ -126,6 +130,7 @@ def index(request):
 
 # UPLOAD
 # ------------------------------------------------------------------------------
+@login_required
 def upload(request):
     """
     Render the upload page. Here users can upload individual pdf documents
@@ -158,6 +163,7 @@ def upload(request):
         return render(request, "upload.html", {"form": form})
 
 
+@login_required
 def upload_success(request):
     """
     Render the upload success page.
@@ -176,6 +182,7 @@ def _count_documents_with_out_detections():
     return Document.objects.exclude(pages__detections__isnull=False).count()
 
 
+@login_required
 def documents(request):
     """
     Render the documents page with filtering options.
@@ -261,6 +268,7 @@ def documents(request):
     return render(request, "documents.html", context)
 
 
+@login_required
 def document_detail(request, document_id):
     """
     Render the document detail page.
@@ -337,6 +345,7 @@ def document_detail(request, document_id):
     return render(request, "document_detail.html", context)
 
 
+@login_required
 def trigger_document_detections(request, document_id):
     """
     Trigger OCR detection for a specific document using a selected OCR config.
@@ -391,6 +400,7 @@ def trigger_document_detections(request, document_id):
     return redirect(reverse("ocr:document_detail", args=[document_id]))
 
 
+@login_required
 def trigger_draw_ocr(request, document_id):
     """
     Trigger the drawing of OCR results for a specific document.
@@ -433,6 +443,7 @@ def trigger_draw_ocr(request, document_id):
 
 # DELETE
 # ------------------------------------------------------------------------------
+@login_required
 def delete_documents_from_vessel(request):
     """
     Render the form for deleting documents from a vessel.
@@ -460,6 +471,7 @@ def delete_documents_from_vessel(request):
 
 # OCR CONFIG
 # ------------------------------------------------------------------------------
+@login_required
 def create_ocr_config(request):
     if request.method == "POST":
         form = OCRConfigForm(request.POST)
@@ -473,6 +485,7 @@ def create_ocr_config(request):
 
 # DETECT
 # ------------------------------------------------------------------------------
+@login_required
 def detect_by_origin(request):
     """
     Render the form for selecting a department origin for document detection.
@@ -525,6 +538,7 @@ def detect_by_origin(request):
     )
 
 
+@login_required
 def detect_success(request):
     """
     Render the detection success page.
@@ -534,6 +548,7 @@ def detect_success(request):
 
 # PROCESS DETECTIONS
 # ------------------------------------------------------------------------------
+@login_required
 def process_detections(request):
     """
     View for processing detections to tags on documents.
@@ -592,6 +607,7 @@ def _suffix_ocr_filename(document_number: str) -> str:
     return f"{base}{suffix}.pdf"
 
 
+@login_required
 def export(request):
     """
     This view serves the export template.
@@ -622,6 +638,7 @@ def export(request):
         return render(request, "export.html", context=context)
 
 
+@login_required
 def export_excel(request):
     """
     Exports tags for document(s) to an Excel file.
@@ -704,9 +721,10 @@ def export_excel(request):
                 logger.error(
                     f"Error generating Excel file: {e}", exc_info=True
                 )
-                form.add_error(None, f"Error generating Excel file: {e}")
+                error_msg = str(e) if settings.DEBUG else "Error generating Excel file."
+                form.add_error(None, error_msg)
                 return render(
-                    request, "export.html", {"form": form, "error": str(e)}
+                    request, "export.html", {"form": form, "error": error_msg}
                 )
         else:
             logger.error("Form is invalid")
@@ -720,6 +738,7 @@ def export_excel(request):
         return render(request, "export.html", {"form": form})
 
 
+@login_required
 def export_pdf(request):
     """
     Export reconstructed PDF for document(s).
@@ -752,9 +771,10 @@ def export_pdf(request):
                     logger.error(
                         f"Error generating PDF file: {e}", exc_info=True
                     )
-                    form.add_error(None, f"Error generating PDF file: {e}")
+                    error_msg = str(e) if settings.DEBUG else "Error generating PDF file."
+                    form.add_error(None, error_msg)
                     return render(
-                        request, "export.html", {"form": form, "error": str(e)}
+                        request, "export.html", {"form": form, "error": error_msg}
                     )
 
             # ---- BATCH BRANCH (mirror Excel export) ----
@@ -809,9 +829,10 @@ def export_pdf(request):
 
             except Exception as e:
                 logger.error(f"Batch PDF export error: {e}", exc_info=True)
-                form.add_error(None, f"Error generating batch PDF export: {e}")
+                error_msg = str(e) if settings.DEBUG else "Error generating batch PDF export."
+                form.add_error(None, error_msg)
                 return render(
-                    request, "export.html", {"form": form, "error": str(e)}
+                    request, "export.html", {"form": form, "error": error_msg}
                 )
 
         else:
