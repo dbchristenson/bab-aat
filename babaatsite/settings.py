@@ -9,6 +9,10 @@ from pathlib import Path
 
 from babaatsite.secret_utils import load_all_secrets
 
+# Environment detection
+ENV = os.environ.get("ENV", "development")
+IS_PRODUCTION = ENV == "production"
+
 if "test" in sys.argv:
     # pretend pypdfium2 is a plain Python module
     sys.modules["pypdfium2"] = types.ModuleType("pypdfium2")
@@ -73,15 +77,22 @@ secret = DJANGO_SECRET
 SECRET_KEY = secret
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = not IS_PRODUCTION
 
-gcp_cloudrun_host = HOSTS.get("GCP_CLOUDRUN_HOST")
-ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-if gcp_cloudrun_host:
-    ALLOWED_HOSTS.append(gcp_cloudrun_host)
-else:
-    raise ValueError("GCP_CLOUDRUN_HOST environment variable is not set.")
+CSRF_TRUSTED_ORIGINS = [f"https://{h}" for h in ALLOWED_HOSTS if h]
+
+# Production security settings
+if IS_PRODUCTION:
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -99,8 +110,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -192,6 +203,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_FILE_DIRS = [BASE_DIR / "static"]
 STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -245,5 +257,7 @@ CELERY_TASK_PUBLISH_RETRY_POLICY = {
     "interval_max": 5,
 }
 
-SECRET_KEY = DJANGO_SECRET
-DEBUG = True
+# Authentication
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/ocr/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"

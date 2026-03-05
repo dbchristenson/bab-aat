@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libmagic1 \
     libmagic-dev \
     curl \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -18,6 +19,18 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 COPY . .
 
+# Collect static files (use dummy secret key for build)
+RUN DJANGO_SECRET="build-placeholder" \
+    SECRETS_BASE_DIR="" \
+    python manage.py collectstatic --noinput
+
+# Copy supervisord config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Non-root user
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
+USER appuser
+
 ENV PORT=8080
 EXPOSE 8080
-CMD ["uv", "run", "uvicorn", "babaatsite.asgi:application", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

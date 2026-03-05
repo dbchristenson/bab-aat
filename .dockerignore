@@ -5,8 +5,7 @@ __pycache__/
 env/
 venv/
 
-# Django migrations, SQLite DB
-*/migrations/
+# SQLite DB
 *.sqlite3
 
 # Node modules, build artifacts
@@ -29,6 +28,9 @@ tmp/
 
 # sheets
 *.xlsx
+
+# Collected static files
+staticfiles/
 
 # resources
 /resources/
