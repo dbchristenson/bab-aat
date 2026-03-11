@@ -7,7 +7,11 @@ import sys
 import types
 from pathlib import Path
 
-from babaatsite.secret_utils import load_all_secrets
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from babaatsite.secret_utils import load_all_secrets  # noqa: E402
 
 # Environment detection
 ENV = os.environ.get("ENV", "development")
@@ -145,16 +149,27 @@ WSGI_APPLICATION = "babaatsite.wsgi.application"
 
 # Database config
 if USE_LOCAL_DB:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": "babaatsite",  # Matches POSTGRES_DB
-            "USER": "postgres",  # Matches POSTGRES_USER
-            "PASSWORD": "mysecretpassword",  # Matches POSTGRES_PASSWORD
-            "HOST": "db",  # The service name in docker-compose.yml
-            "PORT": "5432",
+    # DATABASE_HOST is set by docker-compose for containerized PostgreSQL.
+    # When absent (bare-metal local dev), fall back to SQLite.
+    DB_HOST = os.environ.get("DATABASE_HOST", "")
+    if DB_HOST:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.postgresql",
+                "NAME": os.environ.get("DATABASE_NAME", "babaatsite"),
+                "USER": os.environ.get("DATABASE_USER", "postgres"),
+                "PASSWORD": os.environ.get("DATABASE_PASSWORD", "mysecretpassword"),
+                "HOST": DB_HOST,
+                "PORT": os.environ.get("DATABASE_PORT", "5432"),
+            }
         }
-    }
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
+        }
 else:
     DATABASES = {
         "default": {
@@ -214,7 +229,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Redis config for Celery
 if USE_LOCAL_REDIS:
     CELERY_REDIS_PASSWORD = ""
-    CELERY_REDIS_HOST = "redis"
+    CELERY_REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
     CELERY_REDIS_PORT = "6379"
 else:
     CELERY_REDIS_PASSWORD = REDIS.get("redis_password", "")
